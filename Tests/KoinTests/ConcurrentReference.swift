@@ -1,0 +1,1 @@
+package final class ConcurrentReference {}
