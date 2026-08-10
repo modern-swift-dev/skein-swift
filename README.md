@@ -1,6 +1,6 @@
 # Koin for Swift
 
-`Koin` is a small, type-safe dependency-injection container for Swift. It provides modules, lazily created singletons, and factories.
+`Koin` is a small, type-safe dependency-injection container for Swift. It provides explicit modules, lazy singletons, factories, protocol bindings, and typed qualifiers.
 
 ## Install
 
@@ -10,7 +10,7 @@ Add this package as a dependency in Xcode or Swift Package Manager, then depend 
 .product(name: "Koin", package: "koin4swift")
 ```
 
-## Define a module
+## Quick start
 
 Bindings declare their exposed type and receive a `Resolver` for their own dependencies. A `single` is created once on first use; a `factory` creates a new value for every resolution.
 
@@ -30,13 +30,7 @@ let appModule = module {
         UserService(client: try resolver.get())
     }
 }
-```
 
-## Start and resolve
-
-Start the container once with one or more modules. Resolve values globally with `get()`, or inside a binding through its resolver. Call `stopKoin()` when the application or test container is no longer needed.
-
-```swift
 try startKoin {
     modules(appModule)
 }
@@ -45,24 +39,39 @@ let service: UserService = try get()
 stopKoin()
 ```
 
-## Qualifiers
+All setup and resolution operations that can fail use Swift error handling, so call them with `try` and handle failures appropriate to your application.
 
-Use a `KoinQualifier` when the same type has more than one binding. Qualifier identity includes both its type and value.
+## Documentation
 
-```swift
-enum ClientKind: KoinQualifier {
-    case primary
-    case background
-}
+Start with the [documentation index](Docs/README.md), or jump directly to a focused guide:
 
-let clients = module {
-    single((any HTTPClient).self, qualifier: ClientKind.primary) { _ in URLSessionClient() }
-    single((any HTTPClient).self, qualifier: ClientKind.background) { _ in URLSessionClient() }
-}
+- [Getting started](Docs/getting-started.md)
+- [Bindings and lifetimes](Docs/bindings-and-lifetimes.md)
+- [Modules and protocol bindings](Docs/modules-and-protocol-bindings.md)
+- [Qualifiers](Docs/qualifiers.md)
+- [Lifecycle and errors](Docs/lifecycle-and-errors.md)
+- [Testing with manual doubles](Docs/testing.md)
+- [Concurrency and current limitations](Docs/concurrency-and-limitations.md)
 
-let client = try get((any HTTPClient).self, qualifier: ClientKind.primary)
+## Runnable examples
+
+The [`Examples`](Examples/README.md) package contains independent, executable use cases for:
+
+- singleton and factory lifetimes;
+- dependency chains and module composition;
+- protocol-oriented registrations;
+- qualified bindings;
+- lifecycle and provider-error handling;
+- test isolation and hand-written fakes.
+
+Run any example directly from the repository root:
+
+```sh
+swift run --package-path Examples BasicUsage
+swift run --package-path Examples ModularComposition
+swift run --package-path Examples QualifiedBindings
+swift run --package-path Examples ErrorHandling
+swift test --package-path Examples
 ```
 
-## Errors
-
-All resolution and lifecycle operations throw `KoinError` where applicable: calling `get` before startup, starting twice, duplicate or missing bindings, circular dependency resolution, and an internal resolved-type mismatch. Errors thrown by a binding provider are passed through unchanged. A failed singleton provider is not cached and will be attempted again on the next resolution.
+These examples depend on the local checkout of Koin, so they also serve as compile-checked usage references while the API evolves.
