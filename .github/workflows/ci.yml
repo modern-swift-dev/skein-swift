@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    container: swift:6.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Swift 6.3
+        run: swift --version | grep -F 'Swift version 6.3'
+      - name: Build
+        run: swift build -c release
+
+  apple:
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+    strategy:
+      matrix:
+        destination:
+          - generic/platform=macOS
+          - generic/platform=iOS
+          - generic/platform=tvOS
+          - generic/platform=visionOS
+          - generic/platform=watchOS
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Xcode 26.4.1 and Swift 6.3
+        run: |
+          xcodebuild -version | grep -F 'Xcode 26.4.1'
+          swift --version | grep -F 'Swift version 6.3'
+      - name: Build for ${{ matrix.destination }}
+        run: xcodebuild build -scheme Koin -destination '${{ matrix.destination }}'
