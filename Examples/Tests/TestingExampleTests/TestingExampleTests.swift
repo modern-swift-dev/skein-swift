@@ -1,5 +1,8 @@
 import Koin
+import Foundation
 import XCTest
+
+private let koinTestLock = NSLock()
 
 private protocol GreetingService {
     func greeting() -> String
@@ -48,8 +51,13 @@ private func makeTestModule() -> Module {
 }
 
 final class TestingExampleTests: XCTestCase {
+    override func setUpWithError() throws {
+        koinTestLock.lock()
+    }
+
     override func tearDown() {
         stopKoin()
+        koinTestLock.unlock()
         super.tearDown()
     }
 

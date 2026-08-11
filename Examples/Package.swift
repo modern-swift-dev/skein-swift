@@ -24,6 +24,10 @@ let package = Package(
             name: "ErrorHandling",
             dependencies: [.product(name: "Koin", package: "koin4swift")]
         ),
+        .executableTarget(
+            name: "MainActorValidation",
+            dependencies: [.product(name: "Koin", package: "koin4swift")]
+        ),
         .testTarget(
             name: "TestingExampleTests",
             dependencies: [.product(name: "Koin", package: "koin4swift")]

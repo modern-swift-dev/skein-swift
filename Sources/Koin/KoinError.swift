@@ -5,6 +5,8 @@ public enum KoinError: Error, Equatable, Sendable {
     case alreadyStarted
     case duplicateBinding(type: String, qualifier: String?)
     case missingBinding(type: String, qualifier: String?)
+    /// An ordinary `get` attempted to resolve a main-actor binding.
+    case mainActorBindingRequiresMainActor(type: String, qualifier: String?)
     case circularDependency(path: [String])
     case resolvedTypeMismatch(expected: String, actual: String)
 }

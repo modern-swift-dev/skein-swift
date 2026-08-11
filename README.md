@@ -1,6 +1,6 @@
 # Koin for Swift
 
-`Koin` is a small, type-safe dependency-injection container for Swift. It provides explicit modules, lazy singletons, factories, protocol bindings, and typed qualifiers.
+`Koin` is a small, type-safe dependency-injection container for Swift. It provides explicit modules, lazy singletons, factories, main-actor bindings, protocol bindings, typed qualifiers, and explicit graph validation.
 
 ## Install
 
@@ -49,9 +49,10 @@ Start with the [documentation index](Docs/README.md), or jump directly to a focu
 - [Bindings and lifetimes](Docs/bindings-and-lifetimes.md)
 - [Modules and protocol bindings](Docs/modules-and-protocol-bindings.md)
 - [Qualifiers](Docs/qualifiers.md)
-- [Lifecycle and errors](Docs/lifecycle-and-errors.md)
+- [Lifecycle, validation, and errors](Docs/lifecycle-and-errors.md)
+- [Graph validation and migration](Docs/migration-main-actor-validation.md)
 - [Testing with manual doubles](Docs/testing.md)
-- [Concurrency and current limitations](Docs/concurrency-and-limitations.md)
+- [Concurrency and main-actor bindings](Docs/concurrency-and-limitations.md)
 
 ## Runnable examples
 
@@ -62,6 +63,7 @@ The [`Examples`](Examples/README.md) package contains independent, executable us
 - protocol-oriented registrations;
 - qualified bindings;
 - lifecycle and provider-error handling;
+- main-actor services and explicit startup validation;
 - test isolation and hand-written fakes.
 
 Run any example directly from the repository root:
@@ -71,6 +73,7 @@ swift run --package-path Examples BasicUsage
 swift run --package-path Examples ModularComposition
 swift run --package-path Examples QualifiedBindings
 swift run --package-path Examples ErrorHandling
+swift run --package-path Examples MainActorValidation
 swift test --package-path Examples
 ```
 

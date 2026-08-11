@@ -1,10 +1,36 @@
 import Dispatch
+import Foundation
 @testable import Koin
 import XCTest
 
+@MainActor private final class MainActorService {
+    let reference: Reference
+
+    init(reference: Reference) {
+        self.reference = reference
+    }
+}
+
+@MainActor private final class MainActorFactoryValue {
+    let service: MainActorService
+
+    init(service: MainActorService) {
+        self.service = service
+    }
+}
+
 final class KoinTests: XCTestCase {
+    private static let globalKoinTestLock = NSLock()
+
+    override func setUp() {
+        super.setUp()
+        Self.globalKoinTestLock.lock()
+        stopKoin()
+    }
+
     override func tearDown() {
         stopKoin()
+        Self.globalKoinTestLock.unlock()
         super.tearDown()
     }
 
@@ -196,5 +222,219 @@ final class KoinTests: XCTestCase {
         }
         XCTAssertEqual(try get(String.self), "available")
         XCTAssertEqual(attempts.count, 2)
+    }
+
+    @MainActor
+    func testMainActorSingletonAndFactoryRespectTheirLifetimes() throws {
+        let definitions = module {
+            single(Reference.self) { _ in Reference() }
+            mainActorSingle(MainActorService.self) { resolver in
+                MainActorService(reference: try resolver.get())
+            }
+            mainActorFactory(MainActorFactoryValue.self) { resolver in
+                MainActorFactoryValue(service: try resolver.mainActorGet())
+            }
+        }
+        try startKoin { modules(definitions) }
+
+        let singleton: MainActorService = try mainActorGet()
+        let sameSingleton: MainActorService = try mainActorGet()
+        let firstFactory: MainActorFactoryValue = try mainActorGet()
+        let secondFactory: MainActorFactoryValue = try mainActorGet()
+
+        XCTAssertTrue(singleton === sameSingleton)
+        XCTAssertFalse(firstFactory === secondFactory)
+        XCTAssertTrue(singleton === firstFactory.service)
+        XCTAssertTrue(firstFactory.service === secondFactory.service)
+    }
+
+    @MainActor
+    func testOrdinaryResolutionRejectsMainActorBindingEvenAfterCaching() async throws {
+        let definitions = module {
+            mainActorSingle(MainActorService.self) { _ in MainActorService(reference: Reference()) }
+        }
+        try startKoin { modules(definitions) }
+
+        let _: MainActorService = try mainActorGet()
+        XCTAssertThrowsError(try get(MainActorService.self)) { error in
+            guard case let .mainActorBindingRequiresMainActor(type, qualifier) = error as? KoinError else {
+                return XCTFail("Expected a main-actor binding error, got \(error)")
+            }
+            XCTAssertEqual(type, String(reflecting: MainActorService.self))
+            XCTAssertNil(qualifier)
+        }
+
+        let offActorError = await Task.detached { () -> KoinError? in
+            do {
+                let _: MainActorService = try get()
+                return nil
+            } catch let error as KoinError {
+                return error
+            } catch {
+                return nil
+            }
+        }.value
+        guard case let .mainActorBindingRequiresMainActor(type, qualifier)? = offActorError else {
+            return XCTFail("Expected a main-actor binding error, got \(String(describing: offActorError))")
+        }
+        XCTAssertEqual(type, String(reflecting: MainActorService.self))
+        XCTAssertNil(qualifier)
+    }
+
+    @MainActor
+    func testValidatedStartupProbesProtocolAndQualifiedBindings() throws {
+        let definitions = module {
+            single((any Client).self) { _ in TestClient() }
+            single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
+        }
+
+        try startKoin(
+            validating: [
+                DependencyProbe((any Client).self),
+                DependencyProbe(String.self, qualifier: ClientKind.primary)
+            ]
+        ) {
+            modules(definitions)
+        }
+
+        let client: any Client = try mainActorGet()
+        XCTAssertEqual(client.value, "client")
+        XCTAssertEqual(try mainActorGet(String.self, qualifier: ClientKind.primary), "primary")
+    }
+
+    @MainActor
+    func testValidationRetainsSingletonsAndDoesNotCacheFactories() throws {
+        let singletonConstructions = LockedCounter()
+        let factoryConstructions = LockedCounter()
+        let definitions = module {
+            single(Reference.self) { _ in
+                singletonConstructions.increment()
+                return Reference()
+            }
+            factory(FactoryValue.self) { resolver in
+                factoryConstructions.increment()
+                return FactoryValue(reference: try resolver.get())
+            }
+        }
+
+        try startKoin(
+            validating: [DependencyProbe(Reference.self), DependencyProbe(FactoryValue.self)]
+        ) {
+            modules(definitions)
+        }
+
+        let _: Reference = try mainActorGet()
+        let _: FactoryValue = try mainActorGet()
+        XCTAssertEqual(singletonConstructions.value, 1)
+        XCTAssertEqual(factoryConstructions.value, 2)
+    }
+
+    @MainActor
+    func testValidationReportsMissingCircularAndDuplicateBindings() throws {
+        XCTAssertThrowsError(try startKoin(validating: [DependencyProbe(Reference.self)]) {}) { error in
+            guard case let .missingBinding(type, qualifier) = error as? KoinError else {
+                return XCTFail("Expected a missing-binding error, got \(error)")
+            }
+            XCTAssertEqual(type, String(reflecting: Reference.self))
+            XCTAssertNil(qualifier)
+        }
+        XCTAssertFalse(isKoinStarted)
+
+        let cyclic = module {
+            factory(CycleA.self) { resolver in CycleA(dependency: try resolver.get()) }
+            factory(CycleB.self) { resolver in CycleB(dependency: try resolver.get()) }
+        }
+        XCTAssertThrowsError(try startKoin(validating: [DependencyProbe(CycleA.self)]) { modules(cyclic) }) { error in
+            guard case let .circularDependency(path) = error as? KoinError else {
+                return XCTFail("Expected a circular-dependency error, got \(error)")
+            }
+            XCTAssertEqual(path.count, 3)
+        }
+        XCTAssertFalse(isKoinStarted)
+
+        let duplicate = module {
+            single(Reference.self) { _ in Reference() }
+            factory(Reference.self) { _ in Reference() }
+        }
+        XCTAssertThrowsError(try startKoin(validating: []) { modules(duplicate) }) { error in
+            guard case let .duplicateBinding(type, qualifier) = error as? KoinError else {
+                return XCTFail("Expected a duplicate-binding error, got \(error)")
+            }
+            XCTAssertEqual(type, String(reflecting: Reference.self))
+            XCTAssertNil(qualifier)
+        }
+        XCTAssertFalse(isKoinStarted)
+    }
+
+    func testLifecycleStateSupportsStartStopRestartAndConcurrentReads() throws {
+        XCTAssertFalse(isKoinStarted)
+        let definitions = module {
+            single(Reference.self) { _ in Reference() }
+        }
+        try startKoin { modules(definitions) }
+        XCTAssertTrue(isKoinStarted)
+
+        let falseReads = LockedCounter()
+        DispatchQueue.concurrentPerform(iterations: 128) { _ in
+            if !isKoinStarted {
+                falseReads.increment()
+            }
+        }
+        XCTAssertEqual(falseReads.value, 0)
+
+        stopKoin()
+        XCTAssertFalse(isKoinStarted)
+        try startKoin { modules(definitions) }
+        XCTAssertTrue(isKoinStarted)
+    }
+
+    @MainActor
+    func testValidationReportsResolvedTypeMismatchAndDoesNotStartKoin() throws {
+        let malformed = module {
+            Binding(
+                key: BindingKey(Reference.self, qualifier: nil),
+                lifetime: .factory,
+                provider: .standard { _ in "not a reference" }
+            )
+        }
+
+        XCTAssertThrowsError(
+            try startKoin(validating: [DependencyProbe(Reference.self)]) { modules(malformed) }
+        ) { error in
+            guard case let .resolvedTypeMismatch(expected, actual) = error as? KoinError else {
+                return XCTFail("Expected a resolved-type-mismatch error, got \(error)")
+            }
+            XCTAssertEqual(expected, String(reflecting: Reference.self))
+            XCTAssertEqual(actual, String(reflecting: String.self))
+        }
+        XCTAssertFalse(isKoinStarted)
+        XCTAssertThrowsError(try get(Reference.self)) { error in
+            XCTAssertEqual(error as? KoinError, .notStarted)
+        }
+    }
+
+    @MainActor
+    func testFailedValidationDoesNotRollbackEarlierProviderSideEffects() throws {
+        let factoryConstructions = LockedCounter()
+        let definitions = module {
+            factory(String.self) { _ in
+                factoryConstructions.increment()
+                return "validated first"
+            }
+        }
+
+        XCTAssertThrowsError(
+            try startKoin(
+                validating: [DependencyProbe(String.self), DependencyProbe(Reference.self)]
+            ) {
+                modules(definitions)
+            }
+        ) { error in
+            guard case .missingBinding = error as? KoinError else {
+                return XCTFail("Expected a missing-binding error, got \(error)")
+            }
+        }
+        XCTAssertEqual(factoryConstructions.value, 1)
+        XCTAssertFalse(isKoinStarted)
     }
 }

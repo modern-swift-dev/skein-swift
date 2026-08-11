@@ -55,3 +55,28 @@ let feature = module {
 ```
 
 There is no scoped lifetime in the current API. Stop and restart the global container when you need an entirely fresh set of singleton instances.
+
+## Main-actor bindings
+
+Use `mainActorSingle` and `mainActorFactory` for services that are isolated to the main actor, such as UI coordinators and view models. Their providers are `@MainActor`, and they must be resolved with `mainActorGet` from main-actor code.
+
+```swift
+@MainActor final class ScreenCoordinator {
+    init(configuration: AppConfiguration) { }
+}
+
+let presentation = module {
+    single(AppConfiguration.self) { _ in AppConfiguration() }
+    mainActorSingle(ScreenCoordinator.self) { resolver in
+        ScreenCoordinator(configuration: try resolver.get())
+    }
+}
+
+@MainActor func makeCoordinator() throws -> ScreenCoordinator {
+    try mainActorGet()
+}
+```
+
+`mainActorSingle` has the same lazy, shared-instance lifetime as `single`; `mainActorFactory` creates a new value for every `mainActorGet`. Services do not need to conform to `Sendable`.
+
+An ordinary `get` never resolves a main-actor binding, even if a singleton has already been created. It throws `.mainActorBindingRequiresMainActor(type:qualifier:)`. If a provider needs a main-actor service directly or transitively, register that provider with `mainActorSingle` or `mainActorFactory` and use `resolver.mainActorGet(...)`.

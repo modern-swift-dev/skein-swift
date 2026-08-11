@@ -4,8 +4,11 @@
 
 Use modules as a small composition root for each test. Start Koin with the dependencies the test needs and always stop it in teardown, so global state and singleton instances cannot leak into the next test.
 
+Because Koin is global, tests that use it must also serialize their full start/resolve/stop lifetime. A teardown alone is insufficient when the test runner executes tests concurrently. Keep a test-only lock for the duration of each test and release it after `stopKoin()`.
+
 ```swift
 import Koin
+import Foundation
 import XCTest
 
 protocol UserAPI {
@@ -29,8 +32,15 @@ final class WelcomeService {
 }
 
 final class WelcomeServiceTests: XCTestCase {
+    private static let koinLock = NSLock()
+
+    override func setUpWithError() throws {
+        Self.koinLock.lock()
+    }
+
     override func tearDown() {
         stopKoin()
+        Self.koinLock.unlock()
         super.tearDown()
     }
 
@@ -48,6 +58,8 @@ final class WelcomeServiceTests: XCTestCase {
     }
 }
 ```
+
+For tests with main-actor services, make the test `@MainActor` and use `mainActorGet`. For startup validation tests, call `startKoin(validating:manifest)` within the same serialized lifetime; validated singletons may already be instantiated, and factories have run once.
 
 For a test that needs to inspect calls or return different values, use a manually written fake that stores the state your assertion needs. Register it as a `single` when the system under test and the assertion must observe the same fake instance.
 

@@ -1,6 +1,6 @@
 # Runnable examples
 
-Each target is intentionally small and demonstrates one integration pattern using only Koin's current API.
+Each target is intentionally small and demonstrates one integration pattern using Koin's public API.
 
 | Example | What it demonstrates |
 | --- | --- |
@@ -8,6 +8,7 @@ Each target is intentionally small and demonstrates one integration pattern usin
 | `ModularComposition` | Splitting bindings across modules and exposing an implementation as a protocol |
 | `QualifiedBindings` | Registering and resolving multiple values of the same type |
 | `ErrorHandling` | Inspecting `KoinError`, propagating provider errors, and retrying failed singletons |
+| `MainActorValidation` | Main-actor bindings, an explicit validation manifest, and application-owned startup policy |
 | `TestingExampleTests` | Replacing a production module with a hand-written fake and isolating test containers |
 
 From this directory, run an executable with:
@@ -17,6 +18,7 @@ swift run BasicUsage
 swift run ModularComposition
 swift run QualifiedBindings
 swift run ErrorHandling
+swift run MainActorValidation
 ```
 
 Run the testing example with:

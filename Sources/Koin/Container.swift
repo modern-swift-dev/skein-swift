@@ -28,13 +28,70 @@ package final class Container: Resolver, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        guard let binding = bindings[key] else {
-            throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+        let binding = try binding(for: key)
+        guard case let .standard(provider) = binding.provider else {
+            throw KoinError.mainActorBindingRequiresMainActor(
+                type: key.typeName,
+                qualifier: key.qualifier?.description
+            )
         }
         if binding.lifetime == .single, let instance = singletons[key] {
             return try cast(instance, to: type)
         }
 
+        let instance = try withResolution(of: key) {
+            try provider(self)
+        }
+        let resolved: Service = try cast(instance, to: type)
+        if binding.lifetime == .single {
+            singletons[key] = resolved
+        }
+        return resolved
+    }
+
+    @MainActor
+    package func mainActorGet<Service>(
+        _ type: Service.Type,
+        qualifier: (any KoinQualifier)?
+    ) throws -> Service {
+        let key = BindingKey(type, qualifier: qualifier)
+        lock.lock()
+        defer { lock.unlock() }
+
+        let binding = try binding(for: key)
+        if binding.lifetime == .single, let instance = singletons[key] {
+            return try cast(instance, to: type)
+        }
+
+        let instance: Any
+        switch binding.provider {
+        case let .standard(provider):
+            instance = try withResolution(of: key) {
+                try provider(self)
+            }
+        case let .mainActor(provider):
+            instance = try withResolution(of: key) {
+                try provider(self)
+            }
+        }
+        let resolved: Service = try cast(instance, to: type)
+        if binding.lifetime == .single {
+            singletons[key] = resolved
+        }
+        return resolved
+    }
+
+    private func binding(for key: BindingKey) throws -> Binding {
+        guard let binding = bindings[key] else {
+            throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+        }
+        return binding
+    }
+
+    private func withResolution<Result>(
+        of key: BindingKey,
+        _ resolve: () throws -> Result
+    ) throws -> Result {
         let stack = resolutionStack()
         if let cycleStart = stack.keys.firstIndex(of: key) {
             let path = Array(stack.keys[cycleStart...]) + [key]
@@ -43,12 +100,7 @@ package final class Container: Resolver, @unchecked Sendable {
 
         stack.keys.append(key)
         defer { _ = stack.keys.popLast() }
-        let instance = try binding.provider(self)
-        let resolved: Service = try cast(instance, to: type)
-        if binding.lifetime == .single {
-            singletons[key] = resolved
-        }
-        return resolved
+        return try resolve()
     }
 
     private func resolutionStack() -> ResolutionStack {
