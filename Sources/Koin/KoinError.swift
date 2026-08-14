@@ -1,5 +1,5 @@
-/// Errors produced by the Koin container itself. Errors thrown by providers are
-/// propagated without being wrapped.
+/// Errors produced by the Koin container itself. Resolution APIs expose these
+/// as the `underlying` cause of a ``KoinResolutionError``.
 public enum KoinError: Error, Equatable, Sendable {
     case notStarted
     case alreadyStarted
@@ -9,4 +9,7 @@ public enum KoinError: Error, Equatable, Sendable {
     case mainActorBindingRequiresMainActor(type: String, qualifier: String?)
     case circularDependency(path: [String])
     case resolvedTypeMismatch(expected: String, actual: String)
+    case applicationClosed
+    case duplicateScope(scope: String, id: String)
+    case scopeClosed(scope: String, id: String)
 }

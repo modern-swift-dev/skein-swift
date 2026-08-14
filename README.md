@@ -1,6 +1,6 @@
 # Koin for Swift
 
-`Koin` is a small, type-safe dependency-injection container for Swift. It provides explicit modules, lazy singletons, factories, main-actor bindings, protocol bindings, typed qualifiers, and explicit graph validation.
+`Koin` is a small, type-safe dependency-injection container for Swift. It provides independently owned applications, lazy singletons, factories (including typed assisted factories), flat scopes, main-actor bindings, protocol bindings, typed qualifiers, structural validation, and source-aware resolution diagnostics.
 
 ## Install
 
@@ -49,6 +49,7 @@ Start with the [documentation index](Docs/README.md), or jump directly to a focu
 - [Bindings and lifetimes](Docs/bindings-and-lifetimes.md)
 - [Modules and protocol bindings](Docs/modules-and-protocol-bindings.md)
 - [Qualifiers](Docs/qualifiers.md)
+- [Applications, assisted factories, scopes, and disposal](Docs/ergonomics.md)
 - [Lifecycle, validation, and errors](Docs/lifecycle-and-errors.md)
 - [Graph validation and migration](Docs/migration-main-actor-validation.md)
 - [Testing with manual doubles](Docs/testing.md)
@@ -63,7 +64,7 @@ The [`Examples`](Examples/README.md) package contains independent, executable us
 - protocol-oriented registrations;
 - qualified bindings;
 - lifecycle and provider-error handling;
-- main-actor services and explicit startup validation;
+- main-actor services, structural validation, and explicit startup validation;
 - test isolation and hand-written fakes.
 
 Run any example directly from the repository root:

@@ -35,8 +35,10 @@ do {
 
     do {
         let _: String = try get()
-    } catch ConnectionError.unavailable {
-        print("Provider error propagated unchanged")
+    } catch let error as KoinResolutionError {
+        if error.underlying is ConnectionError {
+            print("Provider error retained as the diagnostic underlying error")
+        }
     }
 
     // A failed singleton is not cached, so its provider is tried again.
@@ -45,8 +47,10 @@ do {
 
     do {
         let _: Int = try get()
-    } catch let KoinError.missingBinding(type, qualifier) {
-        print("Missing binding for \(type), qualifier: \(qualifier ?? "none")")
+    } catch let error as KoinResolutionError {
+        if case let KoinError.missingBinding(type, qualifier) = error.underlying {
+            print("Missing binding for \(type), qualifier: \(qualifier ?? "none")")
+        }
     }
 } catch {
     print("Koin setup or resolution failed: \(error)")

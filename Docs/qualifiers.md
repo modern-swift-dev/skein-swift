@@ -38,7 +38,7 @@ let production = try get(
 )
 ```
 
-An unqualified lookup is distinct from every qualified lookup. If only qualified bindings exist, `try get((any APIEndpoint).self)` throws `KoinError.missingBinding`.
+An unqualified lookup is distinct from every qualified lookup. If only qualified bindings exist, `try get((any APIEndpoint).self)` throws `KoinResolutionError` whose `underlying` error is `KoinError.missingBinding`.
 
 Qualifier identity includes both its concrete type and its value. Two different qualifier types with equal-looking cases do not collide:
 

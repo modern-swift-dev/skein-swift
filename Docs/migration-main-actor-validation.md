@@ -31,7 +31,7 @@ This makes actor isolation visible to the compiler and preserves support for non
 
 ## Replace lifecycle flags and startup probes
 
-Replace a wrapper-maintained `didStart` flag with `isKoinStarted` when a read-only snapshot is enough. Serialize the application's startup path; a check followed by `startKoin` is not atomic.
+Replace a wrapper-maintained `didStart` flag with `isKoinStarted` when a read-only snapshot is enough. When the desired policy is "install only if absent", use `startKoinIfNeeded`, which atomically publishes one default application and returns whether this caller installed it.
 
 Replace custom eager-resolution loops with an explicit `DependencyProbe` manifest:
 

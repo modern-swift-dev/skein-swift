@@ -4,10 +4,10 @@ Each target is intentionally small and demonstrates one integration pattern usin
 
 | Example | What it demonstrates |
 | --- | --- |
-| `BasicUsage` | Starting Koin, lazy singletons, factories, nested resolution, and shutdown |
+| `BasicUsage` | An owned `KoinApplication`, lazy singletons, factories, nested resolution, and typed assisted factories |
 | `ModularComposition` | Splitting bindings across modules and exposing an implementation as a protocol |
 | `QualifiedBindings` | Registering and resolving multiple values of the same type |
-| `ErrorHandling` | Inspecting `KoinError`, propagating provider errors, and retrying failed singletons |
+| `ErrorHandling` | Inspecting `KoinResolutionError`, recovering underlying provider errors, and retrying failed singletons |
 | `MainActorValidation` | Main-actor bindings, an explicit validation manifest, and application-owned startup policy |
 | `TestingExampleTests` | Replacing a production module with a hand-written fake and isolating test containers |
 

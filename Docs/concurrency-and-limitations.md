@@ -2,7 +2,7 @@
 
 [Documentation index](README.md)
 
-Koin serializes dependency resolution within its container. Concurrent calls that resolve the same `single` are safe: the provider is run once after a successful creation, and all callers receive the cached result. Factories still invoke their provider for every resolution.
+Koin serializes dependency resolution within each application. Concurrent calls that resolve the same `single` are safe: the provider is run once after a successful creation, and all callers receive the cached result. Factories still invoke their provider for every resolution.
 
 ```swift
 import Dispatch
@@ -45,11 +45,11 @@ The ordinary `get` and `Resolver.get` reject these bindings with `.mainActorBind
 
 ## Current boundaries
 
-- The public API operates through one global container: `startKoin`, `get`, `mainActorGet`, and `stopKoin`. `isKoinStarted` is a safe lifecycle snapshot, not a startup lock.
-- There are only two lifetimes: lazy singleton and factory; scopes and eager creation are not available.
+- `KoinApplication` owns an independent container. The global `startKoin`, `get`, `mainActorGet`, and `stopKoin` APIs forward to one optional default application. `isKoinStarted` is a safe lifecycle snapshot, not a startup lock.
+- Lifetimes are lazy singleton, factory, and flat typed scope. Nested scopes, async providers, lazy resolver handles, and task-local resolution are not available.
 - Koin protects its own registration, resolution, and singleton-cache state. It does not make the objects you register thread-safe; choose synchronization appropriate to each service.
-- Dependencies are registered explicitly through `module`, `single`, and `factory`. There is no automatic constructor discovery or property injection.
+- Dependencies are registered explicitly through `module`, `single`, `factory`, and `scoped`. Constructor registration supports explicitly passed initializer references with up to four unqualified parameters; there is no reflection, automatic discovery, property injection, or macros.
 - Circular dependencies are detected during resolution and throw an error.
-- There are no built-in adapters documented here for application frameworks, SDKs, mock generators, or other external technologies.
+- `KoinSwiftUI` is an optional adapter for modern Apple platforms. There are no other built-in adapters, SDK integrations, or mock generators.
 
 For operational failure cases, see [lifecycle and errors](lifecycle-and-errors.md). For lifetime choice, see [bindings and lifetimes](bindings-and-lifetimes.md).

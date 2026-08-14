@@ -2,7 +2,7 @@
 
 [Documentation index](README.md)
 
-Every registration is either a `single` or a `factory`.
+Root registrations are either a `single` or a `factory`. A `scoped` registration is cached once per active typed scope; see [applications, assisted factories, scopes, and disposal](ergonomics.md).
 
 | Binding | Provider runs | Result |
 | --- | --- | --- |
@@ -54,7 +54,23 @@ let feature = module {
 }
 ```
 
-There is no scoped lifetime in the current API. Stop and restart the global container when you need an entirely fresh set of singleton instances.
+## Constructor registrations
+
+When a type can be constructed entirely from unqualified dependencies, use `using:`. Koin supports constructors with zero through four dependencies, resolves their declared parameter types, and records those edges for structural validation.
+
+```swift
+final class APIClient { }
+final class ProfileLoader {
+    init(client: APIClient) { }
+}
+
+let feature = module {
+    single(APIClient.self, using: APIClient.init)
+    factory(ProfileLoader.self, using: ProfileLoader.init)
+}
+```
+
+The exposed service type may be a protocol existential. Use a closure registration for qualified dependencies, assisted construction, or constructors with more than four dependencies.
 
 ## Main-actor bindings
 

@@ -1,8 +1,8 @@
-# Lifecycle and errors
+# Lifecycle, validation, and errors
 
 [Documentation index](README.md)
 
-Koin has one global container. Start it once, resolve dependencies, then stop it when the application or isolated test is finished.
+The legacy global API manages one optional default application. Start it once, resolve dependencies, then stop it during application or test teardown. For independently owned containers, use `KoinApplication`; see [applications, assisted factories, scopes, and disposal](ergonomics.md).
 
 ```swift
 final class FeatureService { }
@@ -10,39 +10,24 @@ final class FeatureService { }
 try startKoin {
     modules(appModule, featureModule)
 }
-
 defer { stopKoin() }
 
 let service: FeatureService = try get()
 ```
 
-Calling `stopKoin()` while Koin is already stopped is harmless. Starting after a stop creates a fresh container, so lazily-created singletons are recreated on their next resolution.
+Calling `stopKoin()` while stopped is harmless. It detaches the default application without disposing cached instances. Use `await stopKoinAndClose()` when global singletons and active scopes need deterministic async disposal.
 
-`isKoinStarted` is a thread-safe, read-only snapshot of whether a global container is currently installed. It is useful for an application-owned idempotent startup policy, but checking it and then starting is not one atomic operation. Serialize process startup yourself.
+`isKoinStarted` is a thread-safe snapshot. For atomic idempotent startup, use `startKoinIfNeeded`; it returns `true` only for the caller that installed the default application.
 
 ```swift
-if !isKoinStarted {
-    try startKoin { modules(appModule) }
+if try startKoinIfNeeded({ modules(appModule) }) {
+    // This caller installed the default application.
 }
 ```
 
-`get` takes a container snapshot before resolution. Therefore an in-flight resolution may complete after another thread calls `stopKoin()`, while a later global lookup observes `.notStarted`. Do not use `stopKoin()` as cancellation for providers; coordinate application shutdown around active work.
+## Errors and diagnostics
 
-## Koin errors
-
-`startKoin` and `get` throw these `KoinError` cases where applicable:
-
-| Error | Cause |
-| --- | --- |
-| `.notStarted` | A global `get` happened before startup. |
-| `.alreadyStarted` | `startKoin` was called while a container is active. |
-| `.duplicateBinding(type:qualifier:)` | More than one module registered the same type and qualifier. |
-| `.missingBinding(type:qualifier:)` | No registration matches the requested type and qualifier. |
-| `.circularDependency(path:)` | Providers recursively depend on an active resolution path. |
-| `.resolvedTypeMismatch(expected:actual:)` | A provider result cannot be cast to its registered type. |
-| `.mainActorBindingRequiresMainActor(type:qualifier:)` | An ordinary `get` attempted to resolve a main-actor binding. |
-
-Handle expected setup and lookup failures directly:
+Global lifecycle failures stay direct `KoinError` values: `.notStarted` and `.alreadyStarted`. Failures that occur while resolving a binding are `KoinResolutionError` values. Its `underlying` retains the original `KoinError` or provider-specific error, and `path` contains the full root-to-failure trace with registration locations where known.
 
 ```swift
 do {
@@ -50,28 +35,18 @@ do {
     print(service)
 } catch KoinError.notStarted {
     // Start Koin during the application's composition phase.
-} catch KoinError.missingBinding(let type, let qualifier) {
-    print("No binding for \(type), qualifier: \(String(describing: qualifier))")
-}
-```
-
-Errors thrown by your provider are passed through unchanged; Koin does not wrap them. A failed `single` provider is not cached, so a subsequent `get` retries it.
-
-```swift
-enum ConfigurationError: Error { case unavailable }
-
-let configuration = module {
-    single(String.self) { _ in
-        throw ConfigurationError.unavailable
+} catch let error as KoinResolutionError {
+    if case let KoinError.missingBinding(type, qualifier) = error.underlying {
+        print("No binding for \(type), qualifier: \(String(describing: qualifier))")
     }
 }
 ```
 
-Avoid dependency cycles by passing only the dependencies a type needs into its initializer. Koin reports the cycle but does not break it automatically.
+Provider errors are therefore still recoverable by casting `error.underlying`. A failed `single` provider is not cached, so a later resolution retries it. Duplicate registrations during application creation throw `KoinConfigurationError`, which contains its `KoinError.duplicateBinding` cause and both registration locations.
 
-## Explicit startup validation
+## Runtime startup probes
 
-Use the validating startup overload to resolve the application entry points you explicitly choose. A `DependencyProbe` stores a service type and optional qualifier without creating a public unsafe registration API.
+Use the validating startup overload to resolve the application entry points you explicitly choose. A `DependencyProbe` stores a service type and optional qualifier without exposing an unsafe registration API.
 
 ```swift
 @MainActor func startApplication() throws {
@@ -84,6 +59,24 @@ Use the validating startup overload to resolve the application entry points you 
 }
 ```
 
-Validation constructs a candidate container, resolves probes in manifest order with `mainActorGet`, then publishes that same container only if every probe succeeds. It reports the first existing provider or `KoinError` failure (including missing bindings, cycles, duplicate bindings, and type mismatches). A failed candidate is never installed.
+Validation constructs a candidate application, resolves probes in manifest order with `mainActorGet`, then publishes that application only if all probes succeed. Successfully probed singletons stay cached; factories run once for validation and again for later lookups. Provider side effects are not rolled back after a later probe fails.
 
-Validation is deliberately not eager: only manifest entries are resolved because providers can have side effects. Successfully validated singletons stay cached in the published container; factories run once for validation and again for later lookups. Side effects from earlier probes are not rolled back if a later probe fails. Keep logging and any fail-fast decision in your application, outside Koin.
+## Structural graph validation
+
+For constructor registrations, declare the roots you want to inspect and call `validateGraph()`. This checks statically known constructor edges without executing providers. It detects missing bindings, known cycles, actor violations, and invalid scope lifetimes. Reached closure registrations are reported as `opaqueBindings`; use `DependencyProbe` when runtime validation must cross that boundary.
+
+```swift
+final class APIClient { }
+final class FeatureService {
+    init(client: APIClient) { }
+}
+
+let definitions = module {
+    single(APIClient.self, using: APIClient.init)
+    factory(FeatureService.self, using: FeatureService.init)
+}.validating(FeatureService.self)
+
+let application = try KoinApplication { modules(definitions) }
+let report = try application.validateGraph()
+print(report.opaqueBindings)
+```

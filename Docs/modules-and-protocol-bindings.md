@@ -45,4 +45,24 @@ let client = try get((any HTTPClient).self)
 let repository: ArticleRepository = try get()
 ```
 
-All modules are collected during `startKoin`. Registering the same type and qualifier twice, whether in one module or separate modules, fails startup with `KoinError.duplicateBinding`. Use [qualifiers](qualifiers.md) when multiple implementations of one type are intentional.
+All modules are collected during application creation. Registering the same type and qualifier twice, whether in one module or separate modules, fails creation with a source-aware `KoinConfigurationError` whose `underlying` is `KoinError.duplicateBinding`. Use [qualifiers](qualifiers.md) when multiple implementations of one type are intentional.
+
+## Test or environment overlays
+
+`overriding(_:)` creates a reusable module where registrations in the overlay replace exact binding keys from the base module. Duplicates within either input module still fail when an application is created.
+
+```swift
+let production = module {
+    single((any HTTPClient).self) { _ in URLSessionClient() }
+}
+final class PreviewHTTPClient: HTTPClient {
+    func get(path: String) throws -> String { "preview" }
+}
+let preview = module {
+    single((any HTTPClient).self) { _ in PreviewHTTPClient() }
+}
+
+let previewApplication = try KoinApplication {
+    modules(production.overriding(preview))
+}
+```
