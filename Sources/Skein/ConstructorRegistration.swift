@@ -75,6 +75,7 @@ public func nonisolatedFactory<Service: Sendable, Arguments: Sendable, each Depe
     }.withDependencies(edges)
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorSingle<Service: Sendable, Isolation: GlobalActor, each Dependency: Sendable>(
     _ type: Service.Type, isolatedTo: Isolation.Type,
     qualifier: (any SkeinQualifier)? = nil,
@@ -91,6 +92,7 @@ public func actorSingle<Service: Sendable, Isolation: GlobalActor, each Dependen
     }.withDependencies(edges).withActualActorID(actualActorID)
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorFactory<Service: Sendable, Isolation: GlobalActor, each Dependency: Sendable>(
     _ type: Service.Type, isolatedTo: Isolation.Type,
     qualifier: (any SkeinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line,
@@ -104,6 +106,7 @@ public func actorFactory<Service: Sendable, Isolation: GlobalActor, each Depende
     }.withDependencies(edges).withActualActorID(actualActorID)
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorFactory<Service: Sendable, Arguments: Sendable, Isolation: GlobalActor, each Dependency: Sendable>(
     _ type: Service.Type, arguments: Arguments.Type, isolatedTo: Isolation.Type,
     qualifier: (any SkeinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line,

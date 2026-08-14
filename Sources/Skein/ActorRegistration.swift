@@ -4,6 +4,7 @@ private func customActorIdentity<Isolation: GlobalActor>(
     (ObjectIdentifier(Isolation.shared), String(reflecting: Isolation.self))
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 private func customActorDisposer<Service: Sendable, Isolation: GlobalActor>(
     isolatedTo: Isolation.Type,
     callback: (@isolated(any) @Sendable (Service) async -> Void)?
@@ -22,6 +23,7 @@ private func customActorDisposer<Service: Sendable, Isolation: GlobalActor>(
     }
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorSingle<Service: Sendable, Isolation: GlobalActor>(
     _ type: Service.Type,
     isolatedTo: Isolation.Type,
@@ -46,6 +48,7 @@ public func actorSingle<Service: Sendable, Isolation: GlobalActor>(
     )
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorFactory<Service: Sendable, Isolation: GlobalActor>(
     _ type: Service.Type,
     isolatedTo: Isolation.Type,
@@ -67,6 +70,7 @@ public func actorFactory<Service: Sendable, Isolation: GlobalActor>(
     )
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorFactory<Service: Sendable, Arguments: Sendable, Isolation: GlobalActor>(
     _ type: Service.Type,
     arguments: Arguments.Type,
@@ -97,6 +101,7 @@ public func actorFactory<Service: Sendable, Arguments: Sendable, Isolation: Glob
     )
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorScoped<Service: Sendable, Scope: SkeinScope, Isolation: GlobalActor>(
     _ type: Service.Type,
     scope: Scope.Type,
@@ -122,6 +127,7 @@ public func actorScoped<Service: Sendable, Scope: SkeinScope, Isolation: GlobalA
     )
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorScoped<Service: Sendable, Scope: SkeinScope, Isolation: GlobalActor>(
     _ scope: Scope.Type,
     _ type: Service.Type,
