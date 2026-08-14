@@ -1,6 +1,6 @@
-/// Errors produced by the Koin container itself. Resolution APIs expose these
-/// as the `underlying` cause of a ``KoinResolutionError``.
-public enum KoinError: Error, Equatable, Sendable {
+/// Errors produced by the Skein container itself. Resolution APIs expose these
+/// as the `underlying` cause of a ``SkeinResolutionError``.
+public enum SkeinError: Error, Equatable, Sendable {
     case notStarted
     case alreadyStarted
     case duplicateBinding(type: String, qualifier: String?)

@@ -1,16 +1,16 @@
 import Dispatch
 import Foundation
-@testable import Koin
+@testable import Skein
 import XCTest
 
-private func underlyingKoinError(_ error: any Error) -> KoinError? {
-    if let resolution = error as? KoinResolutionError {
-        return resolution.underlying as? KoinError
+private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
+    if let resolution = error as? SkeinResolutionError {
+        return resolution.underlying as? SkeinError
     }
-    if let configuration = error as? KoinConfigurationError {
+    if let configuration = error as? SkeinConfigurationError {
         return configuration.underlying
     }
-    return error as? KoinError
+    return error as? SkeinError
 }
 
 @MainActor private final class MainActorService {
@@ -29,18 +29,18 @@ private func underlyingKoinError(_ error: any Error) -> KoinError? {
     }
 }
 
-final class KoinTests: XCTestCase {
-    private static let globalKoinTestLock = NSLock()
+final class SkeinTests: XCTestCase {
+    private static let globalSkeinTestLock = NSLock()
 
     override func setUp() {
         super.setUp()
-        Self.globalKoinTestLock.lock()
-        stopKoin()
+        Self.globalSkeinTestLock.lock()
+        stopSkein()
     }
 
     override func tearDown() {
-        stopKoin()
-        Self.globalKoinTestLock.unlock()
+        stopSkein()
+        Self.globalSkeinTestLock.unlock()
         super.tearDown()
     }
 
@@ -52,7 +52,7 @@ final class KoinTests: XCTestCase {
             }
         }
 
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         let first: Reference = try get()
         let second: Reference = try get()
@@ -73,7 +73,7 @@ final class KoinTests: XCTestCase {
                 return ConcurrentReference()
             }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         DispatchQueue.concurrentPerform(iterations: 64) { _ in
             do {
@@ -97,7 +97,7 @@ final class KoinTests: XCTestCase {
             }
         }
 
-        try startKoin { modules(networking, feature) }
+        try startSkein { modules(networking, feature) }
 
         let service: FeatureService = try get()
         XCTAssertEqual(service.client.value, "client")
@@ -108,7 +108,7 @@ final class KoinTests: XCTestCase {
             single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
             single(String.self, qualifier: ClientKind.background) { _ in "background" }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         XCTAssertEqual(try get(String.self, qualifier: ClientKind.primary), "primary")
         XCTAssertEqual(try get(String.self, qualifier: ClientKind.background), "background")
@@ -119,27 +119,27 @@ final class KoinTests: XCTestCase {
             single(String.self, qualifier: PrimaryQualifier.primary) { _ in "first" }
             single(String.self, qualifier: SecondaryQualifier.primary) { _ in "second" }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         XCTAssertEqual(try get(String.self, qualifier: PrimaryQualifier.primary), "first")
         XCTAssertEqual(try get(String.self, qualifier: SecondaryQualifier.primary), "second")
     }
 
-    func testMissingBindingAndUnqualifiedLookupThrowKoinError() throws {
+    func testMissingBindingAndUnqualifiedLookupThrowSkeinError() throws {
         let definitions = module {
             single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         XCTAssertThrowsError(try get(Int.self)) { error in
-            guard case let .missingBinding(type, qualifier) = underlyingKoinError(error) else {
+            guard case let .missingBinding(type, qualifier) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a missing-binding error, got \(error)")
             }
             XCTAssertEqual(type, String(reflecting: Int.self))
             XCTAssertNil(qualifier)
         }
         XCTAssertThrowsError(try get(String.self)) { error in
-            guard case let .missingBinding(type, qualifier) = underlyingKoinError(error) else {
+            guard case let .missingBinding(type, qualifier) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a missing-binding error, got \(error)")
             }
             XCTAssertEqual(type, String(reflecting: String.self))
@@ -149,25 +149,25 @@ final class KoinTests: XCTestCase {
 
     func testLifecycleAndDuplicateBindingErrors() throws {
         XCTAssertThrowsError(try get(Reference.self)) { error in
-            XCTAssertEqual(error as? KoinError, .notStarted)
+            XCTAssertEqual(error as? SkeinError, .notStarted)
         }
 
         let definitions = module {
             single(Reference.self) { _ in Reference() }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
-        XCTAssertThrowsError(try startKoin { modules(definitions) }) { error in
-            XCTAssertEqual(error as? KoinError, .alreadyStarted)
+        XCTAssertThrowsError(try startSkein { modules(definitions) }) { error in
+            XCTAssertEqual(error as? SkeinError, .alreadyStarted)
         }
 
-        stopKoin()
+        stopSkein()
         let duplicate = module {
             single(Reference.self) { _ in Reference() }
             factory(Reference.self) { _ in Reference() }
         }
-        XCTAssertThrowsError(try startKoin { modules(duplicate) }) { error in
-            guard case let .duplicateBinding(type, qualifier) = underlyingKoinError(error) else {
+        XCTAssertThrowsError(try startSkein { modules(duplicate) }) { error in
+            guard case let .duplicateBinding(type, qualifier) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a duplicate-binding error, got \(error)")
             }
             XCTAssertEqual(type, String(reflecting: Reference.self))
@@ -175,7 +175,7 @@ final class KoinTests: XCTestCase {
         }
     }
 
-    func testCircularDependencyThrowsKoinError() throws {
+    func testCircularDependencyThrowsSkeinError() throws {
         let definitions = module {
             factory(CycleA.self) { resolver in
                 CycleA(dependency: try resolver.get())
@@ -184,10 +184,10 @@ final class KoinTests: XCTestCase {
                 CycleB(dependency: try resolver.get())
             }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         XCTAssertThrowsError(try get(CycleA.self)) { error in
-            guard case let .circularDependency(path) = underlyingKoinError(error) else {
+            guard case let .circularDependency(path) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a circular-dependency error, got \(error)")
             }
             XCTAssertEqual(path.count, 3)
@@ -203,11 +203,11 @@ final class KoinTests: XCTestCase {
             }
         }
 
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
         let first: Reference = try get()
-        stopKoin()
+        stopSkein()
 
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
         let second: Reference = try get()
 
         XCTAssertFalse(first === second)
@@ -225,11 +225,11 @@ final class KoinTests: XCTestCase {
                 return "available"
             }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         XCTAssertThrowsError(try get(String.self)) { error in
             XCTAssertEqual(
-                (error as? KoinResolutionError)?.underlying as? ProviderFailure,
+                (error as? SkeinResolutionError)?.underlying as? ProviderFailure,
                 .failed
             )
         }
@@ -247,7 +247,7 @@ final class KoinTests: XCTestCase {
                 MainActorFactoryValue(service: try resolver.mainActorGet())
             }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         let singleton: MainActorService = try mainActorGet()
         let sameSingleton: MainActorService = try mainActorGet()
@@ -264,23 +264,23 @@ final class KoinTests: XCTestCase {
         let definitions = module {
             mainActorSingle(MainActorService.self) { _ in MainActorService(reference: Reference()) }
         }
-        try startKoin { modules(definitions) }
+        try startSkein { modules(definitions) }
 
         let _: MainActorService = try mainActorGet()
         XCTAssertThrowsError(try get(MainActorService.self)) { error in
-            guard case let .mainActorBindingRequiresMainActor(type, qualifier) = underlyingKoinError(error) else {
+            guard case let .mainActorBindingRequiresMainActor(type, qualifier) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a main-actor binding error, got \(error)")
             }
             XCTAssertEqual(type, String(reflecting: MainActorService.self))
             XCTAssertNil(qualifier)
         }
 
-        let offActorError = await Task.detached { () -> KoinError? in
+        let offActorError = await Task.detached { () -> SkeinError? in
             do {
                 let _: MainActorService = try get()
                 return nil
             } catch {
-                return underlyingKoinError(error)
+                return underlyingSkeinError(error)
             }
         }.value
         guard case let .mainActorBindingRequiresMainActor(type, qualifier)? = offActorError else {
@@ -296,7 +296,7 @@ final class KoinTests: XCTestCase {
             single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
         }
 
-        try startKoin(
+        try startSkein(
             validating: [
                 DependencyProbe((any Client).self),
                 DependencyProbe(String.self, qualifier: ClientKind.primary)
@@ -324,7 +324,7 @@ final class KoinTests: XCTestCase {
             }
         }
 
-        try startKoin(
+        try startSkein(
             validating: [DependencyProbe(Reference.self), DependencyProbe(FactoryValue.self)]
         ) {
             modules(definitions)
@@ -337,64 +337,64 @@ final class KoinTests: XCTestCase {
     }
 
     @MainActor func testValidationReportsMissingCircularAndDuplicateBindings() throws {
-        XCTAssertThrowsError(try startKoin(validating: [DependencyProbe(Reference.self)]) {}) { error in
-            guard case let .missingBinding(type, qualifier) = underlyingKoinError(error) else {
+        XCTAssertThrowsError(try startSkein(validating: [DependencyProbe(Reference.self)]) {}) { error in
+            guard case let .missingBinding(type, qualifier) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a missing-binding error, got \(error)")
             }
             XCTAssertEqual(type, String(reflecting: Reference.self))
             XCTAssertNil(qualifier)
         }
-        XCTAssertFalse(isKoinStarted)
+        XCTAssertFalse(isSkeinStarted)
 
         let cyclic = module {
             factory(CycleA.self) { resolver in CycleA(dependency: try resolver.get()) }
             factory(CycleB.self) { resolver in CycleB(dependency: try resolver.get()) }
         }
-        XCTAssertThrowsError(try startKoin(validating: [DependencyProbe(CycleA.self)]) { modules(cyclic) }) { error in
-            guard case let .circularDependency(path) = underlyingKoinError(error) else {
+        XCTAssertThrowsError(try startSkein(validating: [DependencyProbe(CycleA.self)]) { modules(cyclic) }) { error in
+            guard case let .circularDependency(path) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a circular-dependency error, got \(error)")
             }
             XCTAssertEqual(path.count, 3)
         }
-        XCTAssertFalse(isKoinStarted)
+        XCTAssertFalse(isSkeinStarted)
 
         let duplicate = module {
             single(Reference.self) { _ in Reference() }
             factory(Reference.self) { _ in Reference() }
         }
-        XCTAssertThrowsError(try startKoin(validating: []) { modules(duplicate) }) { error in
-            guard case let .duplicateBinding(type, qualifier) = underlyingKoinError(error) else {
+        XCTAssertThrowsError(try startSkein(validating: []) { modules(duplicate) }) { error in
+            guard case let .duplicateBinding(type, qualifier) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a duplicate-binding error, got \(error)")
             }
             XCTAssertEqual(type, String(reflecting: Reference.self))
             XCTAssertNil(qualifier)
         }
-        XCTAssertFalse(isKoinStarted)
+        XCTAssertFalse(isSkeinStarted)
     }
 
     func testLifecycleStateSupportsStartStopRestartAndConcurrentReads() throws {
-        XCTAssertFalse(isKoinStarted)
+        XCTAssertFalse(isSkeinStarted)
         let definitions = module {
             single(Reference.self) { _ in Reference() }
         }
-        try startKoin { modules(definitions) }
-        XCTAssertTrue(isKoinStarted)
+        try startSkein { modules(definitions) }
+        XCTAssertTrue(isSkeinStarted)
 
         let falseReads = LockedCounter()
         DispatchQueue.concurrentPerform(iterations: 128) { _ in
-            if !isKoinStarted {
+            if !isSkeinStarted {
                 falseReads.increment()
             }
         }
         XCTAssertEqual(falseReads.value, 0)
 
-        stopKoin()
-        XCTAssertFalse(isKoinStarted)
-        try startKoin { modules(definitions) }
-        XCTAssertTrue(isKoinStarted)
+        stopSkein()
+        XCTAssertFalse(isSkeinStarted)
+        try startSkein { modules(definitions) }
+        XCTAssertTrue(isSkeinStarted)
     }
 
-    @MainActor func testValidationReportsResolvedTypeMismatchAndDoesNotStartKoin() throws {
+    @MainActor func testValidationReportsResolvedTypeMismatchAndDoesNotStartSkein() throws {
         let malformed = module {
             Binding(
                 key: BindingKey(Reference.self, qualifier: nil),
@@ -404,17 +404,17 @@ final class KoinTests: XCTestCase {
         }
 
         XCTAssertThrowsError(
-            try startKoin(validating: [DependencyProbe(Reference.self)]) { modules(malformed) }
+            try startSkein(validating: [DependencyProbe(Reference.self)]) { modules(malformed) }
         ) { error in
-            guard case let .resolvedTypeMismatch(expected, actual) = underlyingKoinError(error) else {
+            guard case let .resolvedTypeMismatch(expected, actual) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a resolved-type-mismatch error, got \(error)")
             }
             XCTAssertEqual(expected, String(reflecting: Reference.self))
             XCTAssertEqual(actual, String(reflecting: String.self))
         }
-        XCTAssertFalse(isKoinStarted)
+        XCTAssertFalse(isSkeinStarted)
         XCTAssertThrowsError(try get(Reference.self)) { error in
-            XCTAssertEqual(error as? KoinError, .notStarted)
+            XCTAssertEqual(error as? SkeinError, .notStarted)
         }
     }
 
@@ -428,17 +428,17 @@ final class KoinTests: XCTestCase {
         }
 
         XCTAssertThrowsError(
-            try startKoin(
+            try startSkein(
                 validating: [DependencyProbe(String.self), DependencyProbe(Reference.self)]
             ) {
                 modules(definitions)
             }
         ) { error in
-            guard case .missingBinding = underlyingKoinError(error) else {
+            guard case .missingBinding = underlyingSkeinError(error) else {
                 return XCTFail("Expected a missing-binding error, got \(error)")
             }
         }
         XCTAssertEqual(factoryConstructions.value, 1)
-        XCTAssertFalse(isKoinStarted)
+        XCTAssertFalse(isSkeinStarted)
     }
 }

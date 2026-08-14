@@ -1,4 +1,4 @@
-import Koin
+import Skein
 
 protocol APIClient {
     func fetchUserName() -> String
@@ -51,13 +51,13 @@ let featureModule = module {
 }
 
 do {
-    try startKoin {
+    try startSkein {
         modules(networkingModule, dataModule, featureModule)
     }
-    defer { stopKoin() }
+    defer { stopSkein() }
 
     let presenter: ProfilePresenter = try get()
     print(presenter.title())
 } catch {
-    print("Koin setup or resolution failed: \(error)")
+    print("Skein setup or resolution failed: \(error)")
 }

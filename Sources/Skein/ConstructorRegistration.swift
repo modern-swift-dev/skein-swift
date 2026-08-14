@@ -1,8 +1,8 @@
 private func constructorBinding<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)?,
+    qualifier: (any SkeinQualifier)?,
     lifetime: BindingLifetime,
-    source: KoinSourceLocation,
+    source: SkeinSourceLocation,
     dependencies: [BindingDependency],
     onClose: ((Service) async -> Void)? = nil,
     provider: @escaping (any Resolver) throws -> Service
@@ -26,9 +26,9 @@ private func constructorBinding<Service>(
 
 private func mainActorConstructorBinding<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)?,
+    qualifier: (any SkeinQualifier)?,
     lifetime: BindingLifetime,
-    source: KoinSourceLocation,
+    source: SkeinSourceLocation,
     dependencies: [BindingDependency],
     onClose: (@MainActor (Service) async -> Void)? = nil,
     provider: @escaping @MainActor (any Resolver) throws -> Service
@@ -54,7 +54,7 @@ private func mainActorConstructorBinding<Service>(
 
 public func single<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: ((Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -65,7 +65,7 @@ public func single<Service>(
 
 public func single<Service, D1>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: ((Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -76,7 +76,7 @@ public func single<Service, D1>(
 
 public func single<Service, D1, D2>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: ((Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -90,7 +90,7 @@ public func single<Service, D1, D2>(
 
 public func single<Service, D1, D2, D3>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: ((Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -107,7 +107,7 @@ public func single<Service, D1, D2, D3>(
 
 public func single<Service, D1, D2, D3, D4>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: ((Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -123,13 +123,13 @@ public func single<Service, D1, D2, D3, D4>(
     ) { try constructor($0.get(D1.self), $0.get(D2.self), $0.get(D3.self), $0.get(D4.self)) }
 }
 
-public func factory<Service>(_ type: Service.Type, qualifier: (any KoinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line, using constructor: @escaping () throws -> Service) -> Binding {
+public func factory<Service>(_ type: Service.Type, qualifier: (any SkeinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line, using constructor: @escaping () throws -> Service) -> Binding {
     constructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: []) { _ in try constructor() }
 }
 
 public func factory<Service, D1>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping (D1) throws -> Service
@@ -139,7 +139,7 @@ public func factory<Service, D1>(
 
 public func factory<Service, D1, D2>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping (D1, D2) throws -> Service
@@ -152,7 +152,7 @@ public func factory<Service, D1, D2>(
 
 public func factory<Service, D1, D2, D3>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping (D1, D2, D3) throws -> Service
@@ -166,7 +166,7 @@ public func factory<Service, D1, D2, D3>(
 
 public func factory<Service, D1, D2, D3, D4>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping (D1, D2, D3, D4) throws -> Service
@@ -185,7 +185,7 @@ public func factory<Service, D1, D2, D3, D4>(
 
 public func mainActorSingle<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -196,7 +196,7 @@ public func mainActorSingle<Service>(
 
 public func mainActorSingle<Service, D1>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -209,7 +209,7 @@ public func mainActorSingle<Service, D1>(
 
 public func mainActorSingle<Service, D1, D2>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -225,7 +225,7 @@ public func mainActorSingle<Service, D1, D2>(
 
 public func mainActorSingle<Service, D1, D2, D3>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -243,7 +243,7 @@ public func mainActorSingle<Service, D1, D2, D3>(
 
 public func mainActorSingle<Service, D1, D2, D3, D4>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -261,7 +261,7 @@ public func mainActorSingle<Service, D1, D2, D3, D4>(
 
 public func mainActorFactory<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping @MainActor () throws -> Service
@@ -271,7 +271,7 @@ public func mainActorFactory<Service>(
 
 public func mainActorFactory<Service, D1>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping @MainActor (D1) throws -> Service
@@ -281,7 +281,7 @@ public func mainActorFactory<Service, D1>(
 
 public func mainActorFactory<Service, D1, D2>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping @MainActor (D1, D2) throws -> Service
@@ -294,7 +294,7 @@ public func mainActorFactory<Service, D1, D2>(
 
 public func mainActorFactory<Service, D1, D2, D3>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping @MainActor (D1, D2, D3) throws -> Service
@@ -310,7 +310,7 @@ public func mainActorFactory<Service, D1, D2, D3>(
 
 public func mainActorFactory<Service, D1, D2, D3, D4>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     using constructor: @escaping @MainActor (D1, D2, D3, D4) throws -> Service

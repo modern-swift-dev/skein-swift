@@ -1,4 +1,4 @@
-import Koin
+import Skein
 
 enum ConnectionError: Error {
     case unavailable
@@ -21,21 +21,21 @@ let retryModule = module {
 
 do {
     let _: Int = try get()
-} catch KoinError.notStarted {
+} catch SkeinError.notStarted {
     print("Resolution requires an active container")
 } catch {
     print("Unexpected pre-start error: \(error)")
 }
 
 do {
-    try startKoin {
+    try startSkein {
         modules(retryModule)
     }
-    defer { stopKoin() }
+    defer { stopSkein() }
 
     do {
         let _: String = try get()
-    } catch let error as KoinResolutionError {
+    } catch let error as SkeinResolutionError {
         if error.underlying is ConnectionError {
             print("Provider error retained as the diagnostic underlying error")
         }
@@ -47,11 +47,11 @@ do {
 
     do {
         let _: Int = try get()
-    } catch let error as KoinResolutionError {
-        if case let KoinError.missingBinding(type, qualifier) = error.underlying {
+    } catch let error as SkeinResolutionError {
+        if case let SkeinError.missingBinding(type, qualifier) = error.underlying {
             print("Missing binding for \(type), qualifier: \(qualifier ?? "none")")
         }
     }
 } catch {
-    print("Koin setup or resolution failed: \(error)")
+    print("Skein setup or resolution failed: \(error)")
 }

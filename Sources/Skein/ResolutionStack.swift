@@ -7,5 +7,5 @@ package final class ResolutionStacks: NSObject {
 
 package struct ResolutionTraceEntry {
     package let key: BindingKey
-    package let source: KoinSourceLocation?
+    package let source: SkeinSourceLocation?
 }

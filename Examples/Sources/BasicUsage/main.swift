@@ -1,4 +1,4 @@
-import Koin
+import Skein
 
 final class Logger {
     func write(_ message: String) {
@@ -22,7 +22,7 @@ struct RequestPath {
     let value: String
 }
 
-struct RequestScope: KoinScope {}
+struct RequestScope: SkeinScope {}
 
 final class RequestCache {}
 
@@ -53,7 +53,7 @@ let applicationModule = module {
 }
 
 do {
-    let application = try KoinApplication {
+    let application = try SkeinApplication {
         modules(applicationModule)
     }
 
@@ -78,5 +78,5 @@ do {
     let secondCache: RequestCache = try scope.get()
     print("Scoped cache reused: \(firstCache === secondCache)")
 } catch {
-    print("Koin setup or resolution failed: \(error)")
+    print("Skein setup or resolution failed: \(error)")
 }

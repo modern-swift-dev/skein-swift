@@ -1,8 +1,8 @@
-import Koin
 import Foundation
+import Skein
 import XCTest
 
-private let koinTestLock = NSLock()
+private let skeinTestLock = NSLock()
 
 private protocol GreetingService {
     func greeting() -> String
@@ -52,17 +52,17 @@ private func makeTestModule() -> Module {
 
 final class TestingExampleTests: XCTestCase {
     override func setUpWithError() throws {
-        koinTestLock.lock()
+        skeinTestLock.lock()
     }
 
     override func tearDown() {
-        stopKoin()
-        koinTestLock.unlock()
+        stopSkein()
+        skeinTestLock.unlock()
         super.tearDown()
     }
 
     func testProductionGraph() throws {
-        try startKoin { modules(makeProductionModule()) }
+        try startSkein { modules(makeProductionModule()) }
 
         let message: WelcomeMessage = try get()
 
@@ -70,7 +70,7 @@ final class TestingExampleTests: XCTestCase {
     }
 
     func testGraphWithHandWrittenFake() throws {
-        try startKoin { modules(makeTestModule()) }
+        try startSkein { modules(makeTestModule()) }
 
         let message: WelcomeMessage = try get()
 

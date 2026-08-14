@@ -37,8 +37,8 @@ jobs:
           swift --version | grep -F 'Swift version 6.3'
       - name: Build for ${{ matrix.destination }}
         run: |
-          xcodebuild build -scheme Koin -destination '${{ matrix.destination }}'
-          xcodebuild build -scheme KoinSwiftUI -destination '${{ matrix.destination }}'
+          xcodebuild build -scheme Skein -destination '${{ matrix.destination }}'
+          xcodebuild build -scheme SkeinSwiftUI -destination '${{ matrix.destination }}'
       - name: macOS SwiftPM tests
         if: matrix.destination == 'generic/platform=macOS'
         run: swift test

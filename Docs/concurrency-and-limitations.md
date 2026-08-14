@@ -2,11 +2,11 @@
 
 [Documentation index](README.md)
 
-Koin serializes dependency resolution within each application. Concurrent calls that resolve the same `single` are safe: the provider is run once after a successful creation, and all callers receive the cached result. Factories still invoke their provider for every resolution.
+Skein serializes dependency resolution within each application. Concurrent calls that resolve the same `single` are safe: the provider is run once after a successful creation, and all callers receive the cached result. Factories still invoke their provider for every resolution.
 
 ```swift
 import Dispatch
-import Koin
+import Skein
 
 final class SharedCache { }
 
@@ -14,7 +14,7 @@ let definitions = module {
     single(SharedCache.self) { _ in SharedCache() }
 }
 
-try startKoin { modules(definitions) }
+try startSkein { modules(definitions) }
 
 DispatchQueue.concurrentPerform(iterations: 64) { _ in
     let cache: SharedCache = try! get()
@@ -45,11 +45,11 @@ The ordinary `get` and `Resolver.get` reject these bindings with `.mainActorBind
 
 ## Current boundaries
 
-- `KoinApplication` owns an independent container. The global `startKoin`, `get`, `mainActorGet`, and `stopKoin` APIs forward to one optional default application. `isKoinStarted` is a safe lifecycle snapshot, not a startup lock.
+- `SkeinApplication` owns an independent container. The global `startSkein`, `get`, `mainActorGet`, and `stopSkein` APIs forward to one optional default application. `isSkeinStarted` is a safe lifecycle snapshot, not a startup lock.
 - Lifetimes are lazy singleton, factory, and flat typed scope. Nested scopes, async providers, lazy resolver handles, and task-local resolution are not available.
-- Koin protects its own registration, resolution, and singleton-cache state. It does not make the objects you register thread-safe; choose synchronization appropriate to each service.
+- Skein protects its own registration, resolution, and singleton-cache state. It does not make the objects you register thread-safe; choose synchronization appropriate to each service.
 - Dependencies are registered explicitly through `module`, `single`, `factory`, and `scoped`. Constructor registration supports explicitly passed initializer references with up to four unqualified parameters; there is no reflection, automatic discovery, property injection, or macros.
 - Circular dependencies are detected during resolution and throw an error.
-- `KoinSwiftUI` is an optional adapter for modern Apple platforms. There are no other built-in adapters, SDK integrations, or mock generators.
+- `SkeinSwiftUI` is an optional adapter for modern Apple platforms. There are no other built-in adapters, SDK integrations, or mock generators.
 
 For operational failure cases, see [lifecycle and errors](lifecycle-and-errors.md). For lifetime choice, see [bindings and lifetimes](bindings-and-lifetimes.md).

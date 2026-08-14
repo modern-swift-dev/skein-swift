@@ -1,5 +1,5 @@
-/// The source location at which a Koin declaration was made.
-public struct KoinSourceLocation: Equatable, Hashable, Sendable {
+/// The source location at which a Skein declaration was made.
+public struct SkeinSourceLocation: Equatable, Hashable, Sendable {
     public let fileID: String
     public let line: UInt
 
@@ -10,17 +10,17 @@ public struct KoinSourceLocation: Equatable, Hashable, Sendable {
 }
 
 /// One dependency in a resolution trace.
-public struct KoinResolutionFrame: Equatable, Sendable {
+public struct SkeinResolutionFrame: Equatable, Sendable {
     public let type: String
     public let qualifier: String?
     public let argumentType: String?
-    public let registration: KoinSourceLocation?
+    public let registration: SkeinSourceLocation?
 
     public init(
         type: String,
         qualifier: String?,
         argumentType: String?,
-        registration: KoinSourceLocation?
+        registration: SkeinSourceLocation?
     ) {
         self.type = type
         self.qualifier = qualifier
@@ -33,26 +33,26 @@ public struct KoinResolutionFrame: Equatable, Sendable {
 ///
 /// Provider errors are retained verbatim in ``underlying`` so callers can
 /// continue to inspect or cast their domain-specific error.
-public struct KoinResolutionError: Error, @unchecked Sendable {
+public struct SkeinResolutionError: Error, @unchecked Sendable {
     public let underlying: any Error
-    public let path: [KoinResolutionFrame]
+    public let path: [SkeinResolutionFrame]
 
-    public init(underlying: any Error, path: [KoinResolutionFrame]) {
+    public init(underlying: any Error, path: [SkeinResolutionFrame]) {
         self.underlying = underlying
         self.path = path
     }
 }
 
 /// A module configuration failure with source locations for both declarations.
-public struct KoinConfigurationError: Error, @unchecked Sendable {
-    public let underlying: KoinError
-    public let firstRegistration: KoinSourceLocation
-    public let duplicateRegistration: KoinSourceLocation
+public struct SkeinConfigurationError: Error, @unchecked Sendable {
+    public let underlying: SkeinError
+    public let firstRegistration: SkeinSourceLocation
+    public let duplicateRegistration: SkeinSourceLocation
 
     public init(
-        underlying: KoinError,
-        firstRegistration: KoinSourceLocation,
-        duplicateRegistration: KoinSourceLocation
+        underlying: SkeinError,
+        firstRegistration: SkeinSourceLocation,
+        duplicateRegistration: SkeinSourceLocation
     ) {
         self.underlying = underlying
         self.firstRegistration = firstRegistration

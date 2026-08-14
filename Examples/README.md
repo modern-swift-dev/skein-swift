@@ -1,13 +1,13 @@
 # Runnable examples
 
-Each target is intentionally small and demonstrates one integration pattern using Koin's public API.
+Each target is intentionally small and demonstrates one integration pattern using Skein's public API.
 
 | Example | What it demonstrates |
 | --- | --- |
-| `BasicUsage` | An owned `KoinApplication`, lazy singletons, factories, nested resolution, and typed assisted factories |
+| `BasicUsage` | An owned `SkeinApplication`, lazy singletons, factories, nested resolution, and typed assisted factories |
 | `ModularComposition` | Splitting bindings across modules and exposing an implementation as a protocol |
 | `QualifiedBindings` | Registering and resolving multiple values of the same type |
-| `ErrorHandling` | Inspecting `KoinResolutionError`, recovering underlying provider errors, and retrying failed singletons |
+| `ErrorHandling` | Inspecting `SkeinResolutionError`, recovering underlying provider errors, and retrying failed singletons |
 | `MainActorValidation` | Main-actor bindings, an explicit validation manifest, and application-owned startup policy |
 | `TestingExampleTests` | Replacing a production module with a hand-written fake and isolating test containers |
 
@@ -27,4 +27,4 @@ Run the testing example with:
 swift test
 ```
 
-The examples use a local package dependency (`.package(path: "..")`), so edits to Koin are reflected immediately.
+The examples use a local package dependency (`.package(path: "..")`), so edits to Skein are reflected immediately.

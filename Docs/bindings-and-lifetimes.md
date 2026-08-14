@@ -11,7 +11,7 @@ Root registrations are either a `single` or a `factory`. A `scoped` registration
 
 ```swift
 import Foundation
-import Koin
+import Skein
 
 final class SessionStore { }
 
@@ -24,7 +24,7 @@ let module = module {
     factory(RequestID.self) { _ in RequestID() }
 }
 
-try startKoin { modules(module) }
+try startSkein { modules(module) }
 
 let firstStore: SessionStore = try get()
 let secondStore: SessionStore = try get()
@@ -56,7 +56,7 @@ let feature = module {
 
 ## Constructor registrations
 
-When a type can be constructed entirely from unqualified dependencies, use `using:`. Koin supports constructors with zero through four dependencies, resolves their declared parameter types, and records those edges for structural validation.
+When a type can be constructed entirely from unqualified dependencies, use `using:`. Skein supports constructors with zero through four dependencies, resolves their declared parameter types, and records those edges for structural validation.
 
 ```swift
 final class APIClient { }

@@ -1,7 +1,7 @@
 import Foundation
 
 package final class Container: Resolver, @unchecked Sendable {
-    private static let resolutionStacksKey = "Koin.ResolutionStacks"
+    private static let resolutionStacksKey = "Skein.ResolutionStacks"
 
     private enum State {
         case active
@@ -42,7 +42,7 @@ package final class Container: Resolver, @unchecked Sendable {
                             false
                     }
                 }) {
-                    throw KoinConfigurationError(
+                    throw SkeinConfigurationError(
                         underlying: .duplicateBinding(
                             type: binding.key.typeName,
                             qualifier: binding.key.qualifier?.description
@@ -59,7 +59,7 @@ package final class Container: Resolver, @unchecked Sendable {
         validationRoots = modules.flatMap(\.validationRoots)
     }
 
-    package func get<Service>(_ type: Service.Type, qualifier: (any KoinQualifier)?) throws -> Service {
+    package func get<Service>(_ type: Service.Type, qualifier: (any SkeinQualifier)?) throws -> Service {
         let key = BindingKey(type, qualifier: qualifier)
         do {
             return try resolve(type, qualifier: qualifier, arguments: Never?.none)
@@ -71,7 +71,7 @@ package final class Container: Resolver, @unchecked Sendable {
     package func assistedGet<Service, Arguments>(
         _ type: Service.Type,
         arguments: Arguments,
-        qualifier: (any KoinQualifier)?
+        qualifier: (any SkeinQualifier)?
     ) throws -> Service {
         let key = BindingKey(type, qualifier: qualifier, argumentType: Arguments.self)
         do {
@@ -83,7 +83,7 @@ package final class Container: Resolver, @unchecked Sendable {
 
     @MainActor package func mainActorGet<Service>(
         _ type: Service.Type,
-        qualifier: (any KoinQualifier)?
+        qualifier: (any SkeinQualifier)?
     ) throws -> Service {
         let key = BindingKey(type, qualifier: qualifier)
         do {
@@ -96,7 +96,7 @@ package final class Container: Resolver, @unchecked Sendable {
     @MainActor package func mainActorAssistedGet<Service, Arguments>(
         _ type: Service.Type,
         arguments: Arguments,
-        qualifier: (any KoinQualifier)?
+        qualifier: (any SkeinQualifier)?
     ) throws -> Service {
         let key = BindingKey(type, qualifier: qualifier, argumentType: Arguments.self)
         do {
@@ -108,7 +108,7 @@ package final class Container: Resolver, @unchecked Sendable {
 
     package func resolve<Service>(
         _ type: Service.Type,
-        qualifier: (any KoinQualifier)?,
+        qualifier: (any SkeinQualifier)?,
         arguments: (some Any)?
     ) throws -> Service {
         lock.lock()
@@ -122,12 +122,12 @@ package final class Container: Resolver, @unchecked Sendable {
                 return try resolveRoot(type, key: key, binding: binding) { try provider(self) }
             case let .standardAssisted(provider):
                 guard let arguments else {
-                    throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+                    throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
                 }
                 return try resolveRoot(type, key: key, binding: binding) { try provider(self, arguments) }
             case .mainActor,
                  .mainActorAssisted:
-                throw KoinError.mainActorBindingRequiresMainActor(
+                throw SkeinError.mainActorBindingRequiresMainActor(
                     type: key.typeName,
                     qualifier: key.qualifier?.description
                 )
@@ -136,7 +136,7 @@ package final class Container: Resolver, @unchecked Sendable {
 
     @MainActor package func mainActorResolve<Service>(
         _ type: Service.Type,
-        qualifier: (any KoinQualifier)?,
+        qualifier: (any SkeinQualifier)?,
         arguments: (some Any)?
     ) throws -> Service {
         lock.lock()
@@ -152,21 +152,21 @@ package final class Container: Resolver, @unchecked Sendable {
                 return try resolveRoot(type, key: key, binding: binding) { try provider(self) }
             case let .standardAssisted(provider):
                 guard let arguments else {
-                    throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+                    throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
                 }
                 return try resolveRoot(type, key: key, binding: binding) { try provider(self, arguments) }
             case let .mainActorAssisted(provider):
                 guard let arguments else {
-                    throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+                    throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
                 }
                 return try resolveRoot(type, key: key, binding: binding) { try provider(self, arguments) }
         }
     }
 
-    package func resolveInScope<Kind: KoinScope, Service>(
-        _ scope: KoinScopeInstance<Kind>,
+    package func resolveInScope<Kind: SkeinScope, Service>(
+        _ scope: SkeinScopeInstance<Kind>,
         type: Service.Type,
-        qualifier: (any KoinQualifier)?,
+        qualifier: (any SkeinQualifier)?,
         arguments: (some Any)?
     ) throws -> Service {
         let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { Swift.type(of: $0) })
@@ -176,7 +176,7 @@ package final class Container: Resolver, @unchecked Sendable {
             try ensureActive()
             try scope.ensureActive()
             guard let binding = preferredBinding(for: key, scopeType: ObjectIdentifier(Kind.self)) else {
-                throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+                throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
             }
             if binding.lifetime.isRoot {
                 return try resolve(type, qualifier: qualifier, arguments: arguments)
@@ -185,17 +185,17 @@ package final class Container: Resolver, @unchecked Sendable {
                 case let .standard(provider):
                     return try scope.resolve(type, key: key, binding: binding) { try provider(scope) }
                 case .mainActor:
-                    throw KoinError.mainActorBindingRequiresMainActor(
+                    throw SkeinError.mainActorBindingRequiresMainActor(
                         type: key.typeName,
                         qualifier: key.qualifier?.description
                     )
                 case let .standardAssisted(provider):
                     guard let arguments else {
-                        throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+                        throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
                     }
                     return try scope.resolve(type, key: key, binding: binding) { try provider(scope, arguments) }
                 case .mainActorAssisted:
-                    throw KoinError.mainActorBindingRequiresMainActor(
+                    throw SkeinError.mainActorBindingRequiresMainActor(
                         type: key.typeName,
                         qualifier: key.qualifier?.description
                     )
@@ -206,10 +206,10 @@ package final class Container: Resolver, @unchecked Sendable {
         }
     }
 
-    @MainActor package func mainActorResolveInScope<Kind: KoinScope, Service>(
-        _ scope: KoinScopeInstance<Kind>,
+    @MainActor package func mainActorResolveInScope<Kind: SkeinScope, Service>(
+        _ scope: SkeinScopeInstance<Kind>,
         type: Service.Type,
-        qualifier: (any KoinQualifier)?,
+        qualifier: (any SkeinQualifier)?,
         arguments: (some Any)?
     ) throws -> Service {
         let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { Swift.type(of: $0) })
@@ -219,7 +219,7 @@ package final class Container: Resolver, @unchecked Sendable {
             try ensureActive()
             try scope.ensureActive()
             guard let binding = preferredBinding(for: key, scopeType: ObjectIdentifier(Kind.self)) else {
-                throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+                throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
             }
             if binding.lifetime.isRoot {
                 return try mainActorResolve(type, qualifier: qualifier, arguments: arguments)
@@ -231,12 +231,12 @@ package final class Container: Resolver, @unchecked Sendable {
                     return try scope.resolve(type, key: key, binding: binding) { try provider(scope) }
                 case let .standardAssisted(provider):
                     guard let arguments else {
-                        throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+                        throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
                     }
                     return try scope.resolve(type, key: key, binding: binding) { try provider(scope, arguments) }
                 case let .mainActorAssisted(provider):
                     guard let arguments else {
-                        throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+                        throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
                     }
                     return try scope.resolve(type, key: key, binding: binding) { try provider(scope, arguments) }
             }
@@ -246,18 +246,18 @@ package final class Container: Resolver, @unchecked Sendable {
         }
     }
 
-    package func createScope<Kind: KoinScope>(
+    package func createScope<Kind: SkeinScope>(
         _ type: Kind.Type,
         id: some Hashable & Sendable
-    ) throws -> KoinScopeInstance<Kind> {
+    ) throws -> SkeinScopeInstance<Kind> {
         lock.lock()
         defer { lock.unlock() }
         try ensureActive()
         let identity = ScopeIdentity(type: type, id: id)
         guard scopes[identity] == nil else {
-            throw KoinError.duplicateScope(scope: identity.typeName, id: identity.idDescription)
+            throw SkeinError.duplicateScope(scope: identity.typeName, id: identity.idDescription)
         }
-        let scope = KoinScopeInstance<Kind>(container: self, identity: identity)
+        let scope = SkeinScopeInstance<Kind>(container: self, identity: identity)
         scopes[identity] = scope
         scopeCreationOrder.append(identity)
         return scope
@@ -329,7 +329,7 @@ package final class Container: Resolver, @unchecked Sendable {
 
     private func rootBinding(for key: BindingKey) throws -> Binding {
         guard let binding = bindings[key]?.first(where: \.lifetime.isRoot) else {
-            throw KoinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
+            throw SkeinError.missingBinding(type: key.typeName, qualifier: key.qualifier?.description)
         }
         return binding
     }
@@ -370,14 +370,14 @@ package final class Container: Resolver, @unchecked Sendable {
     package func withResolution<Result>(
         of key: BindingKey,
         context: ObjectIdentifier,
-        source: KoinSourceLocation? = nil,
+        source: SkeinSourceLocation? = nil,
         _ resolve: () throws -> Result
     ) throws -> Result {
         let stacks = resolutionStacks()
         var keys = stacks.keysByContext[context, default: []]
         if let cycleStart = keys.firstIndex(of: key) {
             let path = Array(keys[cycleStart...]) + [key]
-            throw KoinError.circularDependency(path: path.map(\.description))
+            throw SkeinError.circularDependency(path: path.map(\.description))
         }
         keys.append(key)
         stacks.keysByContext[context] = keys
@@ -421,7 +421,7 @@ package final class Container: Resolver, @unchecked Sendable {
 
     package func cast<Service>(_ value: Any, to type: Service.Type) throws -> Service {
         guard let resolved = value as? Service else {
-            throw KoinError.resolvedTypeMismatch(
+            throw SkeinError.resolvedTypeMismatch(
                 expected: String(reflecting: type),
                 actual: String(reflecting: Swift.type(of: value))
             )
@@ -429,33 +429,33 @@ package final class Container: Resolver, @unchecked Sendable {
         return resolved
     }
 
-    private func rootSource(for key: BindingKey) -> KoinSourceLocation? {
+    private func rootSource(for key: BindingKey) -> SkeinSourceLocation? {
         bindings[key]?.first(where: \.lifetime.isRoot)?.source
     }
 
     private func resolutionError(
         _ error: any Error,
         appending key: BindingKey,
-        source: KoinSourceLocation?
-    ) -> KoinResolutionError {
-        if let existing = error as? KoinResolutionError {
+        source: SkeinSourceLocation?
+    ) -> SkeinResolutionError {
+        if let existing = error as? SkeinResolutionError {
             return existing
         }
-        let leaf = KoinResolutionFrame(
+        let leaf = SkeinResolutionFrame(
             type: key.typeName,
             qualifier: key.qualifier?.description,
             argumentType: key.argumentTypeName,
             registration: source
         )
         let frames = resolutionStacks().trace.map { entry in
-            KoinResolutionFrame(
+            SkeinResolutionFrame(
                 type: entry.key.typeName,
                 qualifier: entry.key.qualifier?.description,
                 argumentType: entry.key.argumentTypeName,
                 registration: entry.source
             )
         }
-        return KoinResolutionError(underlying: error, path: frames + [leaf])
+        return SkeinResolutionError(underlying: error, path: frames + [leaf])
     }
 
     private func validate(
@@ -543,7 +543,7 @@ package final class Container: Resolver, @unchecked Sendable {
 
     private func ensureActive() throws {
         guard case .active = state else {
-            throw KoinError.applicationClosed
+            throw SkeinError.applicationClosed
         }
     }
 

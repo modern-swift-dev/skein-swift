@@ -1,29 +1,29 @@
 #if canImport(SwiftUI)
-import Koin
+import Skein
 import SwiftUI
 
 /// Errors produced by the SwiftUI integration layer.
-@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public enum KoinSwiftUIError: Error, Equatable, LocalizedError {
-    /// No application was supplied by a surrounding `koinApplication(_:)` modifier.
+@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public enum SkeinSwiftUIError: Error, Equatable, LocalizedError {
+    /// No application was supplied by a surrounding `skeinApplication(_:)` modifier.
     case missingApplication
 
     public var errorDescription: String? {
         switch self {
             case .missingApplication:
-                "No KoinApplication is present in the SwiftUI environment. Apply .koinApplication(_:) to an ancestor view."
+                "No SkeinApplication is present in the SwiftUI environment. Apply .skeinApplication(_:) to an ancestor view."
         }
     }
 }
 
-@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct KoinApplicationEnvironmentKey: EnvironmentKey {
-    static let defaultValue: KoinApplication? = nil
+@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct SkeinApplicationEnvironmentKey: EnvironmentKey {
+    static let defaultValue: SkeinApplication? = nil
 }
 
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public extension EnvironmentValues {
-    /// The nearest Koin application supplied to the view hierarchy, if any.
-    var koinApplication: KoinApplication? {
-        get { self[KoinApplicationEnvironmentKey.self] }
-        set { self[KoinApplicationEnvironmentKey.self] = newValue }
+    /// The nearest Skein application supplied to the view hierarchy, if any.
+    var skeinApplication: SkeinApplication? {
+        get { self[SkeinApplicationEnvironmentKey.self] }
+        set { self[SkeinApplicationEnvironmentKey.self] = newValue }
     }
 }
 
@@ -31,27 +31,27 @@ import SwiftUI
     /// Makes an application available to this view and its descendants.
     ///
     /// Nested modifiers use SwiftUI's normal nearest-value-wins behavior.
-    func koinApplication(_ application: KoinApplication) -> some View {
-        environment(\.koinApplication, application)
+    func skeinApplication(_ application: SkeinApplication) -> some View {
+        environment(\.skeinApplication, application)
     }
 }
 
-/// Resolves and retains an observable object from the nearest Koin application.
+/// Resolves and retains an observable object from the nearest Skein application.
 ///
 /// The resolution result is retained for the lifetime of this property's SwiftUI
 /// identity. To resolve again with a new application or argument value, give the
 /// enclosing view a new identity with `.id(...)`.
 @MainActor
 @propertyWrapper
-@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public struct KoinStateObject<Model: ObservableObject>: @preconcurrency DynamicProperty {
-    @Environment(\.koinApplication) private var application
+@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public struct SkeinStateObject<Model: ObservableObject>: @preconcurrency DynamicProperty {
+    @Environment(\.skeinApplication) private var application
     @StateObject private var storage: Storage<Model>
 
     private let configuration: Configuration
-    private let resolve: (KoinApplication) throws -> Model
+    private let resolve: (SkeinApplication) throws -> Model
 
-    /// Resolves an ordinary Koin binding.
-    public init(qualifier: (any KoinQualifier)? = nil) {
+    /// Resolves an ordinary Skein binding.
+    public init(qualifier: (any SkeinQualifier)? = nil) {
         configuration = Configuration(
             qualifier: qualifier.map(QualifierSnapshot.init),
             argumentsDescription: nil,
@@ -66,7 +66,7 @@ import SwiftUI
     /// Resolves a typed assisted-factory binding.
     public init<Arguments>(
         arguments: Arguments,
-        qualifier: (any KoinQualifier)? = nil
+        qualifier: (any SkeinQualifier)? = nil
     ) {
         configuration = Configuration(
             qualifier: qualifier.map(QualifierSnapshot.init),
@@ -113,9 +113,9 @@ import SwiftUI
     private var initialConfiguration: Configuration?
 
     func resolveIfNeeded(
-        application: KoinApplication?,
+        application: SkeinApplication?,
         configuration: Configuration,
-        resolve: (KoinApplication) throws -> Model
+        resolve: (SkeinApplication) throws -> Model
     ) {
         if result != nil {
             diagnoseChangedInputs(application: application, configuration: configuration)
@@ -125,18 +125,18 @@ import SwiftUI
         initialApplication = application.map(ObjectIdentifier.init)
         initialConfiguration = configuration
         guard let application else {
-            result = .failure(KoinSwiftUIError.missingApplication)
+            result = .failure(SkeinSwiftUIError.missingApplication)
             return
         }
         result = Result { try resolve(application) }
     }
 
-    private func diagnoseChangedInputs(application: KoinApplication?, configuration: Configuration) {
+    private func diagnoseChangedInputs(application: SkeinApplication?, configuration: Configuration) {
         guard initialApplication != application.map(ObjectIdentifier.init) || initialConfiguration != configuration else {
             return
         }
         #if DEBUG
-        debugPrint("KoinStateObject retained its original resolution because its Koin application or arguments changed. Use .id(...) to replace it.")
+        debugPrint("SkeinStateObject retained its original resolution because its Skein application or arguments changed. Use .id(...) to replace it.")
         #endif
     }
 }
@@ -152,7 +152,7 @@ import SwiftUI
     let type: ObjectIdentifier
     let value: String
 
-    init(_ qualifier: any KoinQualifier) {
+    init(_ qualifier: any SkeinQualifier) {
         type = ObjectIdentifier(Swift.type(of: qualifier))
         value = String(reflecting: qualifier)
     }

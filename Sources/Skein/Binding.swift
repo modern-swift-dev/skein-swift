@@ -5,7 +5,7 @@ public struct Binding {
     package let lifetime: BindingLifetime
     package let provider: BindingProvider
     package let disposer: BindingDisposer?
-    package let source: KoinSourceLocation
+    package let source: SkeinSourceLocation
     /// `nil` means the provider is opaque; an empty array is a known leaf.
     package let dependencies: [BindingDependency]?
 
@@ -14,7 +14,7 @@ public struct Binding {
         lifetime: BindingLifetime,
         provider: BindingProvider,
         disposer: BindingDisposer? = nil,
-        source: KoinSourceLocation = KoinSourceLocation(fileID: "<unknown>", line: 0),
+        source: SkeinSourceLocation = SkeinSourceLocation(fileID: "<unknown>", line: 0),
         dependencies: [BindingDependency]? = nil
     ) {
         self.key = key
@@ -45,7 +45,7 @@ package struct UncheckedDisposalValue: @unchecked Sendable {
 /// Registers a lazily-created dependency shared by every successful resolution.
 public func single<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: ((Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -63,14 +63,14 @@ public func single<Service>(
                 await callback(service)
             }
         },
-        source: KoinSourceLocation(fileID: fileID, line: line)
+        source: SkeinSourceLocation(fileID: fileID, line: line)
     )
 }
 
 /// Registers a dependency whose provider is invoked on every resolution.
 public func factory<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     provider: @escaping (any Resolver) throws -> Service
@@ -79,7 +79,7 @@ public func factory<Service>(
         key: BindingKey(type, qualifier: qualifier),
         lifetime: .factory,
         provider: .standard { resolver in try provider(resolver) },
-        source: KoinSourceLocation(fileID: fileID, line: line)
+        source: SkeinSourceLocation(fileID: fileID, line: line)
     )
 }
 
@@ -87,7 +87,7 @@ public func factory<Service>(
 public func factory<Service, Arguments>(
     _ type: Service.Type,
     arguments: Arguments.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     provider: @escaping (any Resolver, Arguments) throws -> Service
@@ -97,21 +97,21 @@ public func factory<Service, Arguments>(
         lifetime: .factory,
         provider: .standardAssisted { resolver, value in
             guard let arguments = value as? Arguments else {
-                throw KoinError.resolvedTypeMismatch(
+                throw SkeinError.resolvedTypeMismatch(
                     expected: String(reflecting: Arguments.self),
                     actual: String(reflecting: Swift.type(of: value))
                 )
             }
             return try provider(resolver, arguments)
         },
-        source: KoinSourceLocation(fileID: fileID, line: line)
+        source: SkeinSourceLocation(fileID: fileID, line: line)
     )
 }
 
 /// Registers a lazily-created main-actor dependency.
 public func mainActorSingle<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -129,14 +129,14 @@ public func mainActorSingle<Service>(
                 await callback(service)
             }
         },
-        source: KoinSourceLocation(fileID: fileID, line: line)
+        source: SkeinSourceLocation(fileID: fileID, line: line)
     )
 }
 
 /// Registers a main-actor dependency created on every resolution.
 public func mainActorFactory<Service>(
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     provider: @escaping @MainActor (any Resolver) throws -> Service
@@ -145,7 +145,7 @@ public func mainActorFactory<Service>(
         key: BindingKey(type, qualifier: qualifier),
         lifetime: .factory,
         provider: .mainActor { resolver in try provider(resolver) },
-        source: KoinSourceLocation(fileID: fileID, line: line)
+        source: SkeinSourceLocation(fileID: fileID, line: line)
     )
 }
 
@@ -153,7 +153,7 @@ public func mainActorFactory<Service>(
 public func mainActorFactory<Service, Arguments>(
     _ type: Service.Type,
     arguments: Arguments.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
     provider: @escaping @MainActor (any Resolver, Arguments) throws -> Service
@@ -163,22 +163,22 @@ public func mainActorFactory<Service, Arguments>(
         lifetime: .factory,
         provider: .mainActorAssisted { resolver, value in
             guard let arguments = value as? Arguments else {
-                throw KoinError.resolvedTypeMismatch(
+                throw SkeinError.resolvedTypeMismatch(
                     expected: String(reflecting: Arguments.self),
                     actual: String(reflecting: Swift.type(of: value))
                 )
             }
             return try provider(resolver, arguments)
         },
-        source: KoinSourceLocation(fileID: fileID, line: line)
+        source: SkeinSourceLocation(fileID: fileID, line: line)
     )
 }
 
 /// Registers a dependency cached once per active scope of `Kind`.
 public func scoped<Service>(
     _ type: Service.Type,
-    scope: (some KoinScope).Type,
-    qualifier: (any KoinQualifier)? = nil,
+    scope: (some SkeinScope).Type,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: ((Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -196,15 +196,15 @@ public func scoped<Service>(
                 await callback(service)
             }
         },
-        source: KoinSourceLocation(fileID: fileID, line: line)
+        source: SkeinSourceLocation(fileID: fileID, line: line)
     )
 }
 
 /// Registers a dependency cached once per active scope of `Kind`.
 public func scoped<Service>(
-    _ scope: (some KoinScope).Type,
+    _ scope: (some SkeinScope).Type,
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: ((Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -224,8 +224,8 @@ public func scoped<Service>(
 /// Registers a main-actor dependency cached once per active scope of `Kind`.
 public func mainActorScoped<Service>(
     _ type: Service.Type,
-    scope: (some KoinScope).Type,
-    qualifier: (any KoinQualifier)? = nil,
+    scope: (some SkeinScope).Type,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,
@@ -243,15 +243,15 @@ public func mainActorScoped<Service>(
                 await callback(service)
             }
         },
-        source: KoinSourceLocation(fileID: fileID, line: line)
+        source: SkeinSourceLocation(fileID: fileID, line: line)
     )
 }
 
 /// Registers a main-actor dependency cached once per active scope of `Kind`.
 public func mainActorScoped<Service>(
-    _ scope: (some KoinScope).Type,
+    _ scope: (some SkeinScope).Type,
     _ type: Service.Type,
-    qualifier: (any KoinQualifier)? = nil,
+    qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
     fileID: String = #fileID,
     line: UInt = #line,

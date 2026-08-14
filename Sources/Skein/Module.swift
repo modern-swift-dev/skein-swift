@@ -16,7 +16,7 @@ public struct Module {
     /// Returns a copy of this module with an additional structural validation root.
     public func validating(
         _ type: (some Any).Type,
-        qualifier: (any KoinQualifier)? = nil,
+        qualifier: (any SkeinQualifier)? = nil,
         fileID: String = #fileID,
         line: UInt = #line
     ) -> Module {
@@ -34,7 +34,7 @@ public struct Module {
         fileID: String = #fileID,
         line: UInt = #line
     ) -> Module {
-        let source = KoinSourceLocation(fileID: fileID, line: line)
+        let source = SkeinSourceLocation(fileID: fileID, line: line)
         return Module(
             bindings: bindings,
             validationRoots: validationRoots + types.map {

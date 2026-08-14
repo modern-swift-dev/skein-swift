@@ -1,12 +1,12 @@
 import Foundation
-@testable import Koin
+@testable import Skein
 import XCTest
 
-private func ergonomicUnderlyingKoinError(_ error: any Error) -> KoinError? {
-    if let resolution = error as? KoinResolutionError {
-        return resolution.underlying as? KoinError
+private func ergonomicUnderlyingSkeinError(_ error: any Error) -> SkeinError? {
+    if let resolution = error as? SkeinResolutionError {
+        return resolution.underlying as? SkeinError
     }
-    return error as? KoinError
+    return error as? SkeinError
 }
 
 private final class ErgonomicReference: @unchecked Sendable {
@@ -16,8 +16,8 @@ private final class ErgonomicReference: @unchecked Sendable {
     }
 }
 
-private struct UserScope: KoinScope {}
-private struct SessionScope: KoinScope {}
+private struct UserScope: SkeinScope {}
+private struct SessionScope: SkeinScope {}
 
 private actor DisposalLog {
     private var entries: [String] = []
@@ -31,11 +31,11 @@ private actor DisposalLog {
 }
 
 private final class ApplicationBox: @unchecked Sendable {
-    var application: KoinApplication?
+    var application: SkeinApplication?
 }
 
 private final class ScopeBox: @unchecked Sendable {
-    var scope: KoinScopeInstance<UserScope>?
+    var scope: SkeinScopeInstance<UserScope>?
 }
 
 @MainActor private final class ErgonomicMainActorValue {}
@@ -62,8 +62,8 @@ final class ErgonomicsTests: XCTestCase {
         let definitions = module {
             single(ErgonomicReference.self) { _ in ErgonomicReference() }
         }
-        let first = try KoinApplication { modules(definitions) }
-        let second = try KoinApplication { modules(definitions) }
+        let first = try SkeinApplication { modules(definitions) }
+        let second = try SkeinApplication { modules(definitions) }
 
         let firstValue: ErgonomicReference = try first.get()
         let sameFirstValue: ErgonomicReference = try first.get()
@@ -74,10 +74,10 @@ final class ErgonomicsTests: XCTestCase {
     }
 
     func testNestedResolutionAcrossApplicationsDoesNotCreateFalseCycle() throws {
-        let second = try KoinApplication {
+        let second = try SkeinApplication {
             modules(module { factory(String.self) { _ in "second" } })
         }
-        let first = try KoinApplication {
+        let first = try SkeinApplication {
             modules(module {
                 factory(String.self) { _ in "first:\(try second.get(String.self))" }
             })
@@ -87,7 +87,7 @@ final class ErgonomicsTests: XCTestCase {
     }
 
     func testAssistedFactoriesCoexistByArgumentType() throws {
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 factory(String.self, arguments: Int.self) { _, value in "int:\(value)" }
                 factory(String.self, arguments: Bool.self) { _, value in "bool:\(value)" }
@@ -101,7 +101,7 @@ final class ErgonomicsTests: XCTestCase {
     }
 
     func testScopeShadowsRootCachesPerScopeAndSharesRootSingletons() throws {
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 single(String.self) { _ in "root" }
                 single(ErgonomicReference.self) { _ in ErgonomicReference() }
@@ -124,7 +124,7 @@ final class ErgonomicsTests: XCTestCase {
     func testScopedInstanceIsCreatedOnceUnderConcurrentResolution() throws {
         let constructions = LockedCounter()
         let failures = LockedCounter()
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 scoped(UserScope.self, ErgonomicReference.self) { _ in
                     constructions.increment()
@@ -147,7 +147,7 @@ final class ErgonomicsTests: XCTestCase {
     }
 
     func testScopeKindsHaveIndependentBindingsAndDuplicateActiveIDsAreRejected() async throws {
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 scoped(UserScope.self, String.self) { _ in "user" }
                 scoped(SessionScope.self, String.self) { _ in "session" }
@@ -159,7 +159,7 @@ final class ErgonomicsTests: XCTestCase {
         XCTAssertEqual(try session.get(String.self), "session")
 
         XCTAssertThrowsError(try application.createScope(UserScope.self, id: 1)) { error in
-            guard case .duplicateScope = error as? KoinError else {
+            guard case .duplicateScope = error as? SkeinError else {
                 return XCTFail("Expected duplicateScope, got \(error)")
             }
         }
@@ -170,7 +170,7 @@ final class ErgonomicsTests: XCTestCase {
 
     func testCloseDisposesScopesBeforeSingletonsInReverseCreationOrder() async throws {
         let log = DisposalLog()
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 single(
                     String.self,
@@ -195,10 +195,10 @@ final class ErgonomicsTests: XCTestCase {
         let entries = await log.snapshot()
         XCTAssertEqual(entries, ["scope", "root"])
         XCTAssertThrowsError(try application.get(String.self)) { error in
-            XCTAssertEqual(ergonomicUnderlyingKoinError(error), .applicationClosed)
+            XCTAssertEqual(ergonomicUnderlyingSkeinError(error), .applicationClosed)
         }
         XCTAssertThrowsError(try scope.get(ErgonomicReference.self)) { error in
-            guard case .applicationClosed = ergonomicUnderlyingKoinError(error) else {
+            guard case .applicationClosed = ergonomicUnderlyingSkeinError(error) else {
                 return XCTFail("Expected applicationClosed, got \(error)")
             }
         }
@@ -208,7 +208,7 @@ final class ErgonomicsTests: XCTestCase {
         let applicationBox = ApplicationBox()
         let scopeBox = ScopeBox()
         let disposals = LockedCounter()
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 single(
                     String.self,
@@ -242,7 +242,7 @@ final class ErgonomicsTests: XCTestCase {
     }
 
     @MainActor func testMainActorAssistedFactoryRequiresMainActorResolution() async throws {
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 mainActorFactory(
                     ErgonomicMainActorValue.self,
@@ -252,12 +252,12 @@ final class ErgonomicsTests: XCTestCase {
         }
         let _: ErgonomicMainActorValue = try application.mainActorGet(arguments: "value")
 
-        let error = await Task.detached { () -> KoinError? in
+        let error = await Task.detached { () -> SkeinError? in
             do {
                 let _: ErgonomicMainActorValue = try application.get(arguments: "value")
                 return nil
             } catch {
-                return ergonomicUnderlyingKoinError(error)
+                return ergonomicUnderlyingSkeinError(error)
             }
         }.value
         guard case .mainActorBindingRequiresMainActor? = error else {
@@ -268,7 +268,7 @@ final class ErgonomicsTests: XCTestCase {
     @MainActor func testSimultaneousMainActorClosesSuspendAndDisposeExactlyOnce() async throws {
         let gate = MainActorCloseGate()
         var disposalCount = 0
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 mainActorSingle(
                     ErgonomicMainActorValue.self,

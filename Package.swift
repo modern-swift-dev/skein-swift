@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Koin",
+    name: "Skein",
     platforms: [
         .macOS(.v15),
         .iOS(.v17),
@@ -12,13 +12,13 @@ let package = Package(
         .visionOS(.v1)
     ],
     products: [
-        .library(name: "Koin", targets: ["Koin"]),
-        .library(name: "KoinSwiftUI", targets: ["KoinSwiftUI"])
+        .library(name: "Skein", targets: ["Skein"]),
+        .library(name: "SkeinSwiftUI", targets: ["SkeinSwiftUI"])
     ],
     targets: [
-        .target(name: "Koin"),
-        .target(name: "KoinSwiftUI", dependencies: ["Koin"]),
-        .testTarget(name: "KoinTests", dependencies: ["Koin"]),
-        .testTarget(name: "KoinSwiftUITests", dependencies: ["KoinSwiftUI", "Koin"])
+        .target(name: "Skein"),
+        .target(name: "SkeinSwiftUI", dependencies: ["Skein"]),
+        .testTarget(name: "SkeinTests", dependencies: ["Skein"]),
+        .testTarget(name: "SkeinSwiftUITests", dependencies: ["SkeinSwiftUI", "Skein"])
     ]
 )

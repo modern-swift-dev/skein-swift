@@ -1,11 +1,11 @@
 #if canImport(SwiftUI)
 import AppKit
-import Koin
-import KoinSwiftUI
+import Skein
+import SkeinSwiftUI
 import SwiftUI
 import XCTest
 
-final class KoinSwiftUITests: XCTestCase {
+final class SkeinSwiftUITests: XCTestCase {
     @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
     @MainActor func testMissingEnvironmentIsRepresentedAsTypedFailure() {
         let appeared = expectation(description: "view appeared")
@@ -15,7 +15,7 @@ final class KoinSwiftUITests: XCTestCase {
                 XCTFail("Expected a retained failure")
                 return
             }
-            XCTAssertEqual(error as? KoinSwiftUIError, .missingApplication)
+            XCTAssertEqual(error as? SkeinSwiftUIError, .missingApplication)
             appeared.fulfill()
         })
         host.view.layoutSubtreeIfNeeded()
@@ -31,7 +31,7 @@ final class KoinSwiftUITests: XCTestCase {
                 XCTFail("Expected a retained failure")
                 return
             }
-            XCTAssertEqual(error as? KoinSwiftUIError, .missingApplication)
+            XCTAssertEqual(error as? SkeinSwiftUIError, .missingApplication)
             appeared.fulfill()
         })
         host.view.layoutSubtreeIfNeeded()
@@ -43,15 +43,15 @@ final class KoinSwiftUITests: XCTestCase {
         let definitions = Module {
             mainActorFactory(TestModel.self) { _ in TestModel() }
         }
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(definitions)
         }
-        _ = EmptyView().koinApplication(application)
+        _ = EmptyView().skeinApplication(application)
     }
 
     @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
     @MainActor func testEnvironmentResolvesAssistedModelOnce() throws {
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 mainActorFactory(TestModel.self, arguments: Int.self) { _, value in
                     TestModel(value: value)
@@ -70,7 +70,7 @@ final class KoinSwiftUITests: XCTestCase {
                 XCTAssertTrue(model === resolved)
                 appeared.fulfill()
             }
-            .koinApplication(application)
+            .skeinApplication(application)
         )
         host.view.layoutSubtreeIfNeeded()
         wait(for: [appeared], timeout: 1)
@@ -86,7 +86,7 @@ final class KoinSwiftUITests: XCTestCase {
 }
 
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct ProbeView: View {
-    @KoinStateObject<TestModel> private var model: TestModel?
+    @SkeinStateObject<TestModel> private var model: TestModel?
     let inspect: (TestModel?, Result<TestModel, Error>?) -> Void
 
     init(inspect: @escaping (TestModel?, Result<TestModel, Error>?) -> Void) {
@@ -99,14 +99,14 @@ final class KoinSwiftUITests: XCTestCase {
 }
 
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct AssistedProbeView: View {
-    @KoinStateObject<TestModel> private var model: TestModel?
+    @SkeinStateObject<TestModel> private var model: TestModel?
     let inspect: (TestModel?, Result<TestModel, Error>?) -> Void
 
     init(
         arguments: Int,
         inspect: @escaping (TestModel?, Result<TestModel, Error>?) -> Void
     ) {
-        _model = KoinStateObject<TestModel>(arguments: arguments)
+        _model = SkeinStateObject<TestModel>(arguments: arguments)
         self.inspect = inspect
     }
 

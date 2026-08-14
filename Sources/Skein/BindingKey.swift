@@ -7,7 +7,7 @@ package struct BindingKey: Hashable, Sendable {
 
     package init(
         _ type: (some Any).Type,
-        qualifier: (any KoinQualifier)?,
+        qualifier: (any SkeinQualifier)?,
         argumentType: Any.Type? = nil
     ) {
         self.type = ObjectIdentifier(type)
@@ -19,7 +19,7 @@ package struct BindingKey: Hashable, Sendable {
 
     package init(
         anyType: Any.Type,
-        qualifier: (any KoinQualifier)? = nil,
+        qualifier: (any SkeinQualifier)? = nil,
         argumentType: Any.Type? = nil
     ) {
         type = ObjectIdentifier(anyType)

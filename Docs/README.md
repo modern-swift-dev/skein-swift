@@ -1,10 +1,10 @@
-# Koin documentation
+# Skein documentation
 
-Koin is a small, type-safe dependency-injection container for Swift. It supports independently owned applications as well as the legacy global convenience API. The `KoinSwiftUI` product is documented below.
+Skein is a small, type-safe dependency-injection container for Swift. It supports independently owned applications as well as the legacy global convenience API. The `SkeinSwiftUI` product is documented below.
 
 ## Guides
 
-- [Getting started](getting-started.md) — install, define a module, start Koin, and resolve a service.
+- [Getting started](getting-started.md) — install, define a module, start Skein, and resolve a service.
 - [Bindings and lifetimes](bindings-and-lifetimes.md) — choose between singleton and factory lifetimes, including main-actor bindings.
 - [Modules and protocol bindings](modules-and-protocol-bindings.md) — split registrations by feature and expose implementations as protocols.
 - [Qualifiers](qualifiers.md) — register more than one binding for a type.
@@ -28,12 +28,12 @@ For complete programs rather than isolated snippets, see the [runnable examples]
 | Share one main-actor instance | `mainActorSingle(Service.self) { ... }` |
 | Create on every main-actor lookup | `mainActorFactory(Service.self) { ... }` |
 | Combine modules | `modules(networking, feature)` |
-| Start / validate / stop the global container | `startKoin { ... }` / `startKoin(validating: ...) { ... }` / `stopKoin()` |
-| Create an isolated application | `try KoinApplication { modules(...) }` |
+| Start / validate / stop the global container | `startSkein { ... }` / `startSkein(validating: ...) { ... }` / `stopSkein()` |
+| Create an isolated application | `try SkeinApplication { modules(...) }` |
 | Resolve a service | `try get()` or `try get(Service.self)` |
 | Resolve inside a provider | `try resolver.get()` |
 | Resolve a main-actor service | `try mainActorGet()` / `try resolver.mainActorGet()` |
-| Inspect lifecycle state | `isKoinStarted` |
+| Inspect lifecycle state | `isSkeinStarted` |
 | Validate selected graph entry points | `DependencyProbe(Service.self)` |
 | Validate constructor edges without constructing values | `try application.validateGraph()` with `.validating(Service.self)` |
 | Distinguish equal service types | `qualifier: SomeQualifier.value` |

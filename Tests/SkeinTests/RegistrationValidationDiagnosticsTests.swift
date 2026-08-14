@@ -1,4 +1,4 @@
-@testable import Koin
+@testable import Skein
 import XCTest
 
 private protocol RegistrationProtocol {}
@@ -52,15 +52,15 @@ private final class RegistrationNested {
     init(_: RegistrationD1) {}
 }
 
-private struct RegistrationScopeA: KoinScope {}
-private struct RegistrationScopeB: KoinScope {}
+private struct RegistrationScopeA: SkeinScope {}
+private struct RegistrationScopeB: SkeinScope {}
 private final class RegistrationCycleA { init(_: RegistrationCycleB) {} }
 private final class RegistrationCycleB { init(_: RegistrationCycleA) {} }
 private final class RegistrationSelfCycle { init() {} }
 
 final class RegistrationValidationDiagnosticsTests: XCTestCase {
     func testConstructorRegistrationSupportsProtocolAndAritiesZeroThroughFour() throws {
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 factory((any RegistrationProtocol).self, using: RegistrationImplementation.init)
                 factory(RegistrationD1.self, using: RegistrationD1.init)
@@ -87,7 +87,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
     }
 
     @MainActor func testMainActorConstructorRegistrationCompilesAndResolvesDependencies() throws {
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 factory(RegistrationD1.self, using: RegistrationD1.init)
                 factory(RegistrationD2.self, using: RegistrationD2.init)
@@ -121,7 +121,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
             }
             factory(RegistrationOne.self, using: RegistrationOne.init)
         }.validating(RegistrationOne.self)
-        let application = try KoinApplication { modules(definition) }
+        let application = try SkeinApplication { modules(definition) }
 
         let report = try application.validateGraph()
 
@@ -131,7 +131,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
     }
 
     func testValidationDetectsStandardToMainActorAndRootToScopeViolations() throws {
-        let actorApplication = try KoinApplication {
+        let actorApplication = try SkeinApplication {
             modules(module {
                 mainActorFactory(RegistrationMainActor.self, using: { RegistrationMainActor(RegistrationD1()) })
                 factory(RegistrationNeedsMainActor.self, using: RegistrationNeedsMainActor.init)
@@ -143,7 +143,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
             }
         }
 
-        let scopeApplication = try KoinApplication {
+        let scopeApplication = try SkeinApplication {
             modules(module {
                 scoped(RegistrationScopeA.self, RegistrationD1.self) { _ in RegistrationD1() }
                 factory(RegistrationOne.self, using: RegistrationOne.init)
@@ -157,7 +157,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
     }
 
     func testValidationDetectsCrossScopeKnownEdge() throws {
-        let source = KoinSourceLocation(fileID: #fileID, line: #line)
+        let source = SkeinSourceLocation(fileID: #fileID, line: #line)
         let parent = Binding(
             key: BindingKey(RegistrationOne.self, qualifier: nil),
             lifetime: .scoped(
@@ -179,7 +179,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
             dependencies: []
         )
         let definition = Module(bindings: [parent, child], validationRoots: [ValidationRoot(RegistrationOne.self)])
-        let application = try KoinApplication { modules(definition) }
+        let application = try SkeinApplication { modules(definition) }
 
         XCTAssertThrowsError(try application.validateGraph()) { error in
             guard case .crossScopeDependency = error as? GraphValidationError else {
@@ -189,7 +189,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
     }
 
     func testValidationDetectsMissingBindingAndKnownCycle() throws {
-        let missing = try KoinApplication {
+        let missing = try SkeinApplication {
             modules(module {
                 factory(RegistrationOne.self, using: RegistrationOne.init)
             }.validating(RegistrationOne.self))
@@ -200,7 +200,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
             }
         }
 
-        let cyclic = try KoinApplication {
+        let cyclic = try SkeinApplication {
             modules(module {
                 factory(RegistrationCycleA.self, using: RegistrationCycleA.init)
                 factory(RegistrationCycleB.self, using: RegistrationCycleB.init)
@@ -215,7 +215,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
     }
 
     func testDirectRuntimeSelfCycleKeepsBothTraceFrames() throws {
-        let application = try KoinApplication {
+        let application = try SkeinApplication {
             modules(module {
                 factory(RegistrationSelfCycle.self) { resolver in
                     try resolver.get(RegistrationSelfCycle.self)
@@ -224,7 +224,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
         }
 
         XCTAssertThrowsError(try application.get(RegistrationSelfCycle.self)) { error in
-            guard let resolution = error as? KoinResolutionError else {
+            guard let resolution = error as? SkeinResolutionError else {
                 return XCTFail("Unexpected error: \(error)")
             }
             XCTAssertEqual(resolution.path.map(\.type), [
@@ -242,10 +242,10 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
             }
             factory(RegistrationNested.self, using: RegistrationNested.init)
         }
-        let application = try KoinApplication { modules(definition) }
+        let application = try SkeinApplication { modules(definition) }
 
         XCTAssertThrowsError(try application.get(RegistrationNested.self)) { error in
-            guard let resolution = error as? KoinResolutionError else {
+            guard let resolution = error as? SkeinResolutionError else {
                 return XCTFail("Unexpected error: \(error)")
             }
             XCTAssertEqual(resolution.underlying as? RegistrationProviderError, .failed)
@@ -264,8 +264,8 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
             factory(RegistrationD1.self) { _ in RegistrationD1() }
             factory(RegistrationD1.self) { _ in RegistrationD1() }
         }
-        XCTAssertThrowsError(try KoinApplication { modules(definition) }) { error in
-            guard let configuration = error as? KoinConfigurationError else {
+        XCTAssertThrowsError(try SkeinApplication { modules(definition) }) { error in
+            guard let configuration = error as? SkeinConfigurationError else {
                 return XCTFail("Unexpected error: \(error)")
             }
             XCTAssertEqual(configuration.firstRegistration.line, UInt(firstLine))

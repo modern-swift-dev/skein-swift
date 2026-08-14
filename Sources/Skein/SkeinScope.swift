@@ -1,7 +1,7 @@
 import Foundation
 
 /// A marker protocol used to define a typed scope kind.
-public protocol KoinScope {}
+public protocol SkeinScope {}
 
 package struct ScopeIdentity: Hashable, @unchecked Sendable {
     package let type: ObjectIdentifier
@@ -9,7 +9,7 @@ package struct ScopeIdentity: Hashable, @unchecked Sendable {
     package let id: AnyHashable
     package let idDescription: String
 
-    package init(type: (some KoinScope).Type, id: some Hashable & Sendable) {
+    package init(type: (some SkeinScope).Type, id: some Hashable & Sendable) {
         self.type = ObjectIdentifier(type)
         typeName = String(reflecting: type)
         self.id = AnyHashable(id)
@@ -22,7 +22,7 @@ package protocol ScopeStorage: AnyObject, Sendable {
 }
 
 /// A flat, typed scope that inherits bindings from its application.
-public final class KoinScopeInstance<Kind: KoinScope>: Resolver, ScopeStorage, @unchecked Sendable {
+public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage, @unchecked Sendable {
     private enum State { case active, closing, closed }
     private struct CachedInstance {
         let value: Any
@@ -44,7 +44,7 @@ public final class KoinScopeInstance<Kind: KoinScope>: Resolver, ScopeStorage, @
 
     public func get<Service>(
         _ type: Service.Type,
-        qualifier: (any KoinQualifier)?
+        qualifier: (any SkeinQualifier)?
     ) throws -> Service {
         try container.resolveInScope(
             self,
@@ -57,7 +57,7 @@ public final class KoinScopeInstance<Kind: KoinScope>: Resolver, ScopeStorage, @
     public func get<Service>(
         _ type: Service.Type = Service.self,
         arguments: some Any,
-        qualifier: (any KoinQualifier)? = nil
+        qualifier: (any SkeinQualifier)? = nil
     ) throws -> Service {
         try container.resolveInScope(
             self,
@@ -69,7 +69,7 @@ public final class KoinScopeInstance<Kind: KoinScope>: Resolver, ScopeStorage, @
 
     @MainActor public func mainActorGet<Service>(
         _ type: Service.Type,
-        qualifier: (any KoinQualifier)?
+        qualifier: (any SkeinQualifier)?
     ) throws -> Service {
         try container.mainActorResolveInScope(
             self,
@@ -82,7 +82,7 @@ public final class KoinScopeInstance<Kind: KoinScope>: Resolver, ScopeStorage, @
     @MainActor public func mainActorGet<Service>(
         _ type: Service.Type = Service.self,
         arguments: some Any,
-        qualifier: (any KoinQualifier)? = nil
+        qualifier: (any SkeinQualifier)? = nil
     ) throws -> Service {
         try container.mainActorResolveInScope(
             self,
@@ -120,7 +120,7 @@ public final class KoinScopeInstance<Kind: KoinScope>: Resolver, ScopeStorage, @
         lock.lock()
         defer { lock.unlock() }
         guard case .active = state else {
-            throw KoinError.scopeClosed(scope: identity.typeName, id: identity.idDescription)
+            throw SkeinError.scopeClosed(scope: identity.typeName, id: identity.idDescription)
         }
     }
 

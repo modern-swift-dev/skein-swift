@@ -1,10 +1,10 @@
 import Dispatch
 import Foundation
-@testable import Koin
+@testable import Skein
 import XCTest
 
-private struct ConvenienceScope: KoinScope {}
-private struct OtherConvenienceScope: KoinScope {}
+private struct ConvenienceScope: SkeinScope {}
+private struct OtherConvenienceScope: SkeinScope {}
 
 private func countedModules(_ counter: LockedCounter, value: Int) -> [Module] {
     counter.increment()
@@ -22,11 +22,11 @@ private func countedInvalidModules(_ counter: LockedCounter) -> [Module] {
 final class LifecycleConvenienceTests: XCTestCase {
     override func setUp() {
         super.setUp()
-        stopKoin()
+        stopSkein()
     }
 
     override func tearDown() {
-        stopKoin()
+        stopSkein()
         super.tearDown()
     }
 
@@ -44,7 +44,7 @@ final class LifecycleConvenienceTests: XCTestCase {
             scoped(ConvenienceScope.self, String.self) { _ in "overlay-scope" }
         }
 
-        let application = try KoinApplication { modules(base.overriding(overlay)) }
+        let application = try SkeinApplication { modules(base.overriding(overlay)) }
         XCTAssertEqual(try application.get(String.self), "overlay-root")
         XCTAssertEqual(try application.get(String.self, arguments: 2), "overlay-int:2")
         XCTAssertEqual(try application.get(String.self, arguments: true), "base-bool:true")
@@ -55,9 +55,9 @@ final class LifecycleConvenienceTests: XCTestCase {
         XCTAssertEqual(try otherScope.get(String.self), "other-scope")
 
         // The source modules are reusable and unchanged.
-        let baseApplication = try KoinApplication { modules(base) }
+        let baseApplication = try SkeinApplication { modules(base) }
         XCTAssertEqual(try baseApplication.get(String.self), "base-root")
-        let overlayApplication = try KoinApplication { modules(overlay) }
+        let overlayApplication = try SkeinApplication { modules(overlay) }
         XCTAssertEqual(try overlayApplication.get(String.self), "overlay-root")
     }
 
@@ -70,9 +70,9 @@ final class LifecycleConvenienceTests: XCTestCase {
             single(String.self) { _ in "overlay" }
         }
         XCTAssertThrowsError(
-            try KoinApplication { modules(duplicateBase.overriding(overlay)) }
+            try SkeinApplication { modules(duplicateBase.overriding(overlay)) }
         ) { error in
-            guard case .duplicateBinding = (error as? KoinConfigurationError)?.underlying else {
+            guard case .duplicateBinding = (error as? SkeinConfigurationError)?.underlying else {
                 return XCTFail("Expected duplicateBinding, got \(error)")
             }
         }
@@ -83,22 +83,22 @@ final class LifecycleConvenienceTests: XCTestCase {
             factory(String.self) { _ in "second" }
         }
         XCTAssertThrowsError(
-            try KoinApplication { modules(base.overriding(duplicateOverlay)) }
+            try SkeinApplication { modules(base.overriding(duplicateOverlay)) }
         ) { error in
-            guard case .duplicateBinding = (error as? KoinConfigurationError)?.underlying else {
+            guard case .duplicateBinding = (error as? SkeinConfigurationError)?.underlying else {
                 return XCTFail("Expected duplicateBinding, got \(error)")
             }
         }
     }
 
-    func testStartKoinIfNeededPublishesExactlyOneConcurrentCandidate() throws {
+    func testStartSkeinIfNeededPublishesExactlyOneConcurrentCandidate() throws {
         let configurations = LockedCounter()
         let starts = LockedCounter()
         let failures = LockedCounter()
 
         DispatchQueue.concurrentPerform(iterations: 64) { index in
             do {
-                let started = try startKoinIfNeeded {
+                let started = try startSkeinIfNeeded {
                     countedModules(configurations, value: index)
                 }
                 if started {
@@ -115,13 +115,13 @@ final class LifecycleConvenienceTests: XCTestCase {
         let _: Int = try get()
     }
 
-    func testStartKoinIfNeededRetainsExistingApplicationWithoutBuildingCandidate() throws {
-        XCTAssertTrue(try startKoinIfNeeded {
+    func testStartSkeinIfNeededRetainsExistingApplicationWithoutBuildingCandidate() throws {
+        XCTAssertTrue(try startSkeinIfNeeded {
             modules(module { single(String.self) { _ in "installed" } })
         })
 
         let configurations = LockedCounter()
-        let didStart = try startKoinIfNeeded {
+        let didStart = try startSkeinIfNeeded {
             countedInvalidModules(configurations)
         }
 
@@ -130,25 +130,25 @@ final class LifecycleConvenienceTests: XCTestCase {
         XCTAssertEqual(try get(String.self), "installed")
     }
 
-    func testStartKoinIfNeededThrowsInvalidConstructionWhenStopped() {
+    func testStartSkeinIfNeededThrowsInvalidConstructionWhenStopped() {
         XCTAssertThrowsError(
-            try startKoinIfNeeded {
+            try startSkeinIfNeeded {
                 modules(module {
                     single(String.self) { _ in "first" }
                     factory(String.self) { _ in "second" }
                 })
             }
         ) { error in
-            guard case .duplicateBinding = (error as? KoinConfigurationError)?.underlying else {
+            guard case .duplicateBinding = (error as? SkeinConfigurationError)?.underlying else {
                 return XCTFail("Expected duplicateBinding, got \(error)")
             }
         }
-        XCTAssertFalse(isKoinStarted)
+        XCTAssertFalse(isSkeinStarted)
     }
 
     func testGlobalAssistedResolutionAndStopWithClose() async throws {
         let disposals = LockedCounter()
-        try startKoin {
+        try startSkein {
             modules(module {
                 factory(String.self, arguments: Int.self) { _, value in "value:\(value)" }
                 single(
@@ -161,9 +161,9 @@ final class LifecycleConvenienceTests: XCTestCase {
 
         XCTAssertEqual(try get(String.self, arguments: 7), "value:7")
         let _: Int = try get()
-        await stopKoinAndClose()
+        await stopSkeinAndClose()
 
         XCTAssertEqual(disposals.value, 1)
-        XCTAssertFalse(isKoinStarted)
+        XCTAssertFalse(isSkeinStarted)
     }
 }

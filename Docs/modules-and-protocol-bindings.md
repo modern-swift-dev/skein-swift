@@ -2,10 +2,10 @@
 
 [Documentation index](README.md)
 
-Modules keep registrations close to the feature that owns them. Pass any number of modules to `modules(...)` when starting Koin.
+Modules keep registrations close to the feature that owns them. Pass any number of modules to `modules(...)` when starting Skein.
 
 ```swift
-import Koin
+import Skein
 
 protocol HTTPClient {
     func get(path: String) throws -> String
@@ -33,7 +33,7 @@ let articles = module {
     }
 }
 
-try startKoin {
+try startSkein {
     modules(networking, articles)
 }
 ```
@@ -45,7 +45,7 @@ let client = try get((any HTTPClient).self)
 let repository: ArticleRepository = try get()
 ```
 
-All modules are collected during application creation. Registering the same type and qualifier twice, whether in one module or separate modules, fails creation with a source-aware `KoinConfigurationError` whose `underlying` is `KoinError.duplicateBinding`. Use [qualifiers](qualifiers.md) when multiple implementations of one type are intentional.
+All modules are collected during application creation. Registering the same type and qualifier twice, whether in one module or separate modules, fails creation with a source-aware `SkeinConfigurationError` whose `underlying` is `SkeinError.duplicateBinding`. Use [qualifiers](qualifiers.md) when multiple implementations of one type are intentional.
 
 ## Test or environment overlays
 
@@ -62,7 +62,7 @@ let preview = module {
     single((any HTTPClient).self) { _ in PreviewHTTPClient() }
 }
 
-let previewApplication = try KoinApplication {
+let previewApplication = try SkeinApplication {
     modules(production.overriding(preview))
 }
 ```

@@ -1,6 +1,6 @@
-import Koin
+import Skein
 
-enum ServiceEnvironment: KoinQualifier {
+enum ServiceEnvironment: SkeinQualifier {
     case production
     case staging
 }
@@ -19,10 +19,10 @@ let endpointModule = module {
 }
 
 do {
-    try startKoin {
+    try startSkein {
         modules(endpointModule)
     }
-    defer { stopKoin() }
+    defer { stopSkein() }
 
     let production = try get(
         ServiceEndpoint.self,
@@ -36,5 +36,5 @@ do {
     print("Production: \(production.baseURL)")
     print("Staging: \(staging.baseURL)")
 } catch {
-    print("Koin setup or resolution failed: \(error)")
+    print("Skein setup or resolution failed: \(error)")
 }
