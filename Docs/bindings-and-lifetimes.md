@@ -20,11 +20,11 @@ final class RequestID {
 }
 
 let module = module {
-    single(SessionStore.self) { _ in SessionStore() }
-    factory(RequestID.self) { _ in RequestID() }
+    single(SessionStore.self, using: SessionStore.init)
+    factory(RequestID.self, using: RequestID.init)
 }
 
-try startSkein { modules(module) }
+try startSkein { module }
 
 let firstStore: SessionStore = try get()
 let secondStore: SessionStore = try get()
@@ -47,16 +47,14 @@ final class ProfileLoader {
 }
 
 let feature = module {
-    single(APIClient.self) { _ in APIClient() }
-    factory(ProfileLoader.self) { resolver in
-        ProfileLoader(client: try resolver.get())
-    }
+    single(APIClient.self, using: APIClient.init)
+    factory(ProfileLoader.self, using: ProfileLoader.init)
 }
 ```
 
 ## Constructor registrations
 
-When a type can be constructed entirely from unqualified dependencies, use `using:`. Skein supports constructors with zero through four dependencies, resolves their declared parameter types, and records those edges for structural validation.
+When a type can be constructed entirely from unqualified dependencies, use `using:`. Parameter packs support any constructor arity and record every dependency edge for structural validation.
 
 ```swift
 final class APIClient { }
@@ -70,11 +68,11 @@ let feature = module {
 }
 ```
 
-The exposed service type may be a protocol existential. Use a closure registration for qualified dependencies, assisted construction, or constructors with more than four dependencies.
+The exposed service type may be a protocol existential. Use a closure registration for qualified dependencies. Assisted constructors place their runtime argument first and also use `using:`.
 
-## Main-actor bindings
+## Isolation
 
-Use `mainActorSingle` and `mainActorFactory` for services that are isolated to the main actor, such as UI coordinators and view models. Their providers are `@MainActor`, and they must be resolved with `mainActorGet` from main-actor code.
+Unprefixed bindings and `get` are MainActor-isolated by default. Services do not need to conform to `Sendable`.
 
 ```swift
 @MainActor final class ScreenCoordinator {
@@ -82,17 +80,13 @@ Use `mainActorSingle` and `mainActorFactory` for services that are isolated to t
 }
 
 let presentation = module {
-    single(AppConfiguration.self) { _ in AppConfiguration() }
-    mainActorSingle(ScreenCoordinator.self) { resolver in
-        ScreenCoordinator(configuration: try resolver.get())
-    }
+    instance(AppConfiguration())
+    single(ScreenCoordinator.self, using: ScreenCoordinator.init)
 }
 
 @MainActor func makeCoordinator() throws -> ScreenCoordinator {
-    try mainActorGet()
+    try get()
 }
 ```
 
-`mainActorSingle` has the same lazy, shared-instance lifetime as `single`; `mainActorFactory` creates a new value for every `mainActorGet`. Services do not need to conform to `Sendable`.
-
-An ordinary `get` never resolves a main-actor binding, even if a singleton has already been created. It throws `.mainActorBindingRequiresMainActor(type:qualifier:)`. If a provider needs a main-actor service directly or transitively, register that provider with `mainActorSingle` or `mainActorFactory` and use `resolver.mainActorGet(...)`.
+Use `nonisolatedSingle`, `nonisolatedFactory`, `nonisolatedScoped`, `nonisolatedInstance`, and `nonisolatedGet` for Sendable dependencies that must resolve outside MainActor. Use `actorSingle`, `actorFactory`, `actorScoped`, `actorInstance`, and async `actorGet` for an app-defined `GlobalActor`.

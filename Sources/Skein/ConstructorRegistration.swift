@@ -1,325 +1,147 @@
-private func constructorBinding<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)?,
-    lifetime: BindingLifetime,
-    source: SkeinSourceLocation,
-    dependencies: [BindingDependency],
-    onClose: ((Service) async -> Void)? = nil,
-    provider: @escaping (any Resolver) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier),
-        lifetime: lifetime,
-        provider: .standard { try provider($0) },
-        disposer: onClose.map { callback in
-            .standard { value in
-                guard let service = value as? Service else {
-                    return
-                }
-                await callback(service)
-            }
-        },
-        source: source,
-        dependencies: dependencies
-    )
-}
+// Constructor overloads use parameter packs so dependency metadata is complete
+// at every arity. The assisted argument, when present, is always first.
 
-private func mainActorConstructorBinding<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)?,
-    lifetime: BindingLifetime,
-    source: SkeinSourceLocation,
-    dependencies: [BindingDependency],
+@MainActor public func single<Service, each Dependency>(
+    _ type: Service.Type, qualifier: (any SkeinQualifier)? = nil,
     onClose: (@MainActor (Service) async -> Void)? = nil,
-    provider: @escaping @MainActor (any Resolver) throws -> Service
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @MainActor (repeat each Dependency) throws -> Service
 ) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier),
-        lifetime: lifetime,
-        provider: .mainActor { try provider($0) },
-        disposer: onClose.map { callback in
-            .mainActor { value in
-                guard let service = value.value as? Service else {
-                    return
-                }
-                await callback(service)
-            }
-        },
-        source: source,
-        dependencies: dependencies
-    )
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    return single(type, qualifier: qualifier, onClose: onClose, fileID: fileID, line: line) { resolver in
+        try constructor(repeat resolver.get((each Dependency).self))
+    }.withDependencies(edges)
 }
 
-// MARK: Standard constructor registrations
-
-public func single<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: ((Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping () throws -> Service
+@MainActor public func factory<Service, each Dependency>(
+    _ type: Service.Type, qualifier: (any SkeinQualifier)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @MainActor (repeat each Dependency) throws -> Service
 ) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .single, source: .init(fileID: fileID, line: line), dependencies: [], onClose: onClose) { _ in try constructor() }
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    return factory(type, qualifier: qualifier, fileID: fileID, line: line) { resolver in
+        try constructor(repeat resolver.get((each Dependency).self))
+    }.withDependencies(edges)
 }
 
-public func single<Service, D1>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: ((Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping (D1) throws -> Service
+@MainActor public func factory<Service, Arguments, each Dependency>(
+    _ type: Service.Type, arguments: Arguments.Type,
+    qualifier: (any SkeinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @MainActor (Arguments, repeat each Dependency) throws -> Service
 ) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .single, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self)], onClose: onClose) { try constructor($0.get(D1.self)) }
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    return factory(type, arguments: arguments, qualifier: qualifier, fileID: fileID, line: line) { resolver, arguments in
+        try constructor(arguments, repeat resolver.get((each Dependency).self))
+    }.withDependencies(edges)
 }
 
-public func single<Service, D1, D2>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: ((Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping (D1, D2) throws -> Service
+public func nonisolatedSingle<Service: Sendable, each Dependency: Sendable>(
+    _ type: Service.Type, qualifier: (any SkeinQualifier)? = nil,
+    onClose: (@Sendable (Service) async -> Void)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @Sendable (repeat each Dependency) throws -> Service
 ) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .single, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self), .init(D2.self)], onClose: onClose) { try constructor(
-        $0.get(D1.self),
-        $0.get(D2.self)
-    ) }
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    return nonisolatedSingle(type, qualifier: qualifier, onClose: onClose, fileID: fileID, line: line) { resolver in
+        try constructor(repeat resolver.nonisolatedGet((each Dependency).self))
+    }.withDependencies(edges)
 }
 
-public func single<Service, D1, D2, D3>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: ((Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping (D1, D2, D3) throws -> Service
+public func nonisolatedFactory<Service: Sendable, each Dependency: Sendable>(
+    _ type: Service.Type, qualifier: (any SkeinQualifier)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @Sendable (repeat each Dependency) throws -> Service
 ) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .single, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self), .init(D2.self), .init(D3.self)], onClose: onClose) {
-        try constructor(
-            $0.get(D1.self),
-            $0.get(D2.self),
-            $0.get(D3.self)
-        )
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    return nonisolatedFactory(type, qualifier: qualifier, fileID: fileID, line: line) { resolver in
+        try constructor(repeat resolver.nonisolatedGet((each Dependency).self))
+    }.withDependencies(edges)
+}
+
+public func nonisolatedFactory<Service: Sendable, Arguments: Sendable, each Dependency: Sendable>(
+    _ type: Service.Type, arguments: Arguments.Type,
+    qualifier: (any SkeinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @Sendable (Arguments, repeat each Dependency) throws -> Service
+) -> Binding {
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    return nonisolatedFactory(type, arguments: arguments, qualifier: qualifier, fileID: fileID, line: line) { resolver, arguments in
+        try constructor(arguments, repeat resolver.nonisolatedGet((each Dependency).self))
+    }.withDependencies(edges)
+}
+
+public func actorSingle<Service: Sendable, Isolation: GlobalActor, each Dependency: Sendable>(
+    _ type: Service.Type, isolatedTo: Isolation.Type,
+    qualifier: (any SkeinQualifier)? = nil,
+    onClose: (@isolated(any) @Sendable (Service) async -> Void)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @isolated(any) @Sendable (repeat each Dependency) async throws -> Service
+) -> Binding {
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    let actualActorID = constructor.isolation.map(ObjectIdentifier.init)
+    return actorSingle(type, isolatedTo: isolatedTo, qualifier: qualifier, onClose: onClose,
+                       fileID: fileID, line: line) { resolver in
+        try await constructor(repeat resolver.actorGet((each Dependency).self))
+    }.withDependencies(edges).withActualActorID(actualActorID)
+}
+
+public func actorFactory<Service: Sendable, Isolation: GlobalActor, each Dependency: Sendable>(
+    _ type: Service.Type, isolatedTo: Isolation.Type,
+    qualifier: (any SkeinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @isolated(any) @Sendable (repeat each Dependency) async throws -> Service
+) -> Binding {
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    let actualActorID = constructor.isolation.map(ObjectIdentifier.init)
+    return actorFactory(type, isolatedTo: isolatedTo, qualifier: qualifier, fileID: fileID, line: line) { resolver in
+        try await constructor(repeat resolver.actorGet((each Dependency).self))
+    }.withDependencies(edges).withActualActorID(actualActorID)
+}
+
+public func actorFactory<Service: Sendable, Arguments: Sendable, Isolation: GlobalActor, each Dependency: Sendable>(
+    _ type: Service.Type, arguments: Arguments.Type, isolatedTo: Isolation.Type,
+    qualifier: (any SkeinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @isolated(any) @Sendable (Arguments, repeat each Dependency) async throws -> Service
+) -> Binding {
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
+    let actualActorID = constructor.isolation.map(ObjectIdentifier.init)
+    return actorFactory(type, arguments: arguments, isolatedTo: isolatedTo, qualifier: qualifier,
+                        fileID: fileID, line: line) { resolver, arguments in
+        try await constructor(arguments, repeat resolver.actorGet((each Dependency).self))
+    }.withDependencies(edges).withActualActorID(actualActorID)
+}
+
+private extension Binding {
+    func withDependencies(_ dependencies: [BindingDependency]) -> Binding {
+        Binding(key: key, lifetime: lifetime, isolation: isolation, provider: provider,
+                disposer: disposer, source: source, dependencies: dependencies,
+                rootPolicy: rootPolicy, rootSource: rootSource)
     }
-}
 
-public func single<Service, D1, D2, D3, D4>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: ((Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping (D1, D2, D3, D4) throws -> Service
-) -> Binding {
-    constructorBinding(
-        type,
-        qualifier: qualifier,
-        lifetime: .single,
-        source: .init(fileID: fileID, line: line),
-        dependencies: [.init(D1.self), .init(D2.self), .init(D3.self), .init(D4.self)],
-        onClose: onClose
-    ) { try constructor($0.get(D1.self), $0.get(D2.self), $0.get(D3.self), $0.get(D4.self)) }
-}
-
-public func factory<Service>(_ type: Service.Type, qualifier: (any SkeinQualifier)? = nil, fileID: String = #fileID, line: UInt = #line, using constructor: @escaping () throws -> Service) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: []) { _ in try constructor() }
-}
-
-public func factory<Service, D1>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping (D1) throws -> Service
-) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self)]) { try constructor($0.get(D1.self)) }
-}
-
-public func factory<Service, D1, D2>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping (D1, D2) throws -> Service
-) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self), .init(D2.self)]) { try constructor(
-        $0.get(D1.self),
-        $0.get(D2.self)
-    ) }
-}
-
-public func factory<Service, D1, D2, D3>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping (D1, D2, D3) throws -> Service
-) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self), .init(D2.self), .init(D3.self)]) { try constructor(
-        $0.get(D1.self),
-        $0.get(D2.self),
-        $0.get(D3.self)
-    ) }
-}
-
-public func factory<Service, D1, D2, D3, D4>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping (D1, D2, D3, D4) throws -> Service
-) -> Binding {
-    constructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self), .init(D2.self), .init(D3.self), .init(D4.self)]) {
-        try constructor(
-            $0.get(D1.self),
-            $0.get(D2.self),
-            $0.get(D3.self),
-            $0.get(D4.self)
-        )
+    func withActualActorID(_ actualActorID: ObjectIdentifier?) -> Binding {
+        let replacement: BindingProvider
+        switch provider {
+            case let .customActor(storage):
+                replacement = .customActor(.init(expectedActorID: storage.expectedActorID,
+                                                 actualActorID: actualActorID,
+                                                 actorName: storage.actorName,
+                                                 invoke: storage.invoke))
+            case let .customActorAssisted(storage):
+                replacement = .customActorAssisted(.init(expectedActorID: storage.expectedActorID,
+                                                         actualActorID: actualActorID,
+                                                         actorName: storage.actorName,
+                                                         invoke: storage.invoke))
+            default: replacement = provider
+        }
+        return Binding(key: key, lifetime: lifetime, isolation: isolation, provider: replacement,
+                       disposer: disposer, source: source, dependencies: dependencies,
+                       rootPolicy: rootPolicy, rootSource: rootSource)
     }
-}
-
-// MARK: Main-actor constructor registrations
-
-public func mainActorSingle<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: (@MainActor (Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor () throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(type, qualifier: qualifier, lifetime: .single, source: .init(fileID: fileID, line: line), dependencies: [], onClose: onClose) { _ in try constructor() }
-}
-
-public func mainActorSingle<Service, D1>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: (@MainActor (Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor (D1) throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(type, qualifier: qualifier, lifetime: .single, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self)], onClose: onClose) {
-        try constructor($0.mainActorGet(D1.self))
-    }
-}
-
-public func mainActorSingle<Service, D1, D2>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: (@MainActor (Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor (D1, D2) throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(type, qualifier: qualifier, lifetime: .single, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self), .init(D2.self)], onClose: onClose) {
-        try constructor(
-            $0.mainActorGet(D1.self),
-            $0.mainActorGet(D2.self)
-        )
-    }
-}
-
-public func mainActorSingle<Service, D1, D2, D3>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: (@MainActor (Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor (D1, D2, D3) throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(
-        type,
-        qualifier: qualifier,
-        lifetime: .single,
-        source: .init(fileID: fileID, line: line),
-        dependencies: [.init(D1.self), .init(D2.self), .init(D3.self)],
-        onClose: onClose
-    ) { try constructor($0.mainActorGet(D1.self), $0.mainActorGet(D2.self), $0.mainActorGet(D3.self)) }
-}
-
-public func mainActorSingle<Service, D1, D2, D3, D4>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: (@MainActor (Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor (D1, D2, D3, D4) throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(
-        type,
-        qualifier: qualifier,
-        lifetime: .single,
-        source: .init(fileID: fileID, line: line),
-        dependencies: [.init(D1.self), .init(D2.self), .init(D3.self), .init(D4.self)],
-        onClose: onClose
-    ) { try constructor($0.mainActorGet(D1.self), $0.mainActorGet(D2.self), $0.mainActorGet(D3.self), $0.mainActorGet(D4.self)) }
-}
-
-public func mainActorFactory<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor () throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: []) { _ in try constructor() }
-}
-
-public func mainActorFactory<Service, D1>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor (D1) throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self)]) { try constructor($0.mainActorGet(D1.self)) }
-}
-
-public func mainActorFactory<Service, D1, D2>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor (D1, D2) throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self), .init(D2.self)]) { try constructor(
-        $0.mainActorGet(D1.self),
-        $0.mainActorGet(D2.self)
-    ) }
-}
-
-public func mainActorFactory<Service, D1, D2, D3>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor (D1, D2, D3) throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(type, qualifier: qualifier, lifetime: .factory, source: .init(fileID: fileID, line: line), dependencies: [.init(D1.self), .init(D2.self), .init(D3.self)]) {
-        try constructor(
-            $0.mainActorGet(D1.self),
-            $0.mainActorGet(D2.self),
-            $0.mainActorGet(D3.self)
-        )
-    }
-}
-
-public func mainActorFactory<Service, D1, D2, D3, D4>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    using constructor: @escaping @MainActor (D1, D2, D3, D4) throws -> Service
-) -> Binding {
-    mainActorConstructorBinding(
-        type,
-        qualifier: qualifier,
-        lifetime: .factory,
-        source: .init(fileID: fileID, line: line),
-        dependencies: [.init(D1.self), .init(D2.self), .init(D3.self), .init(D4.self)]
-    ) { try constructor($0.mainActorGet(D1.self), $0.mainActorGet(D2.self), $0.mainActorGet(D3.self), $0.mainActorGet(D4.self)) }
 }

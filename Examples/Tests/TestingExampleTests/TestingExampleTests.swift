@@ -1,8 +1,5 @@
-import Foundation
 import Skein
 import XCTest
-
-private let skeinTestLock = NSLock()
 
 private protocol GreetingService {
     func greeting() -> String
@@ -32,47 +29,31 @@ private final class WelcomeMessage {
     }
 }
 
-private func makeProductionModule() -> Module {
+@MainActor private func makeProductionModule() -> Module {
     module {
-        single((any GreetingService).self) { _ in LiveGreetingService() }
-        factory(WelcomeMessage.self) { resolver in
-            WelcomeMessage(service: try resolver.get())
-        }
+        single((any GreetingService).self, provider: { _ in LiveGreetingService() })
+        factory(WelcomeMessage.self, using: WelcomeMessage.init)
     }
 }
 
-private func makeTestModule() -> Module {
+@MainActor private func makeTestModule() -> Module {
     module {
-        single((any GreetingService).self) { _ in FakeGreetingService() }
-        factory(WelcomeMessage.self) { resolver in
-            WelcomeMessage(service: try resolver.get())
-        }
+        single((any GreetingService).self, provider: { _ in FakeGreetingService() })
+        factory(WelcomeMessage.self, using: WelcomeMessage.init)
     }
 }
 
-final class TestingExampleTests: XCTestCase {
-    override func setUpWithError() throws {
-        skeinTestLock.lock()
-    }
-
-    override func tearDown() {
-        stopSkein()
-        skeinTestLock.unlock()
-        super.tearDown()
-    }
-
+@MainActor final class TestingExampleTests: XCTestCase {
     func testProductionGraph() throws {
-        try startSkein { modules(makeProductionModule()) }
-
-        let message: WelcomeMessage = try get()
+        let application = try SkeinApplication { makeProductionModule() }
+        let message: WelcomeMessage = try application.get()
 
         XCTAssertEqual(message.text, "Hello from production")
     }
 
     func testGraphWithHandWrittenFake() throws {
-        try startSkein { modules(makeTestModule()) }
-
-        let message: WelcomeMessage = try get()
+        let application = try SkeinApplication { makeTestModule() }
+        let message: WelcomeMessage = try application.get()
 
         XCTAssertEqual(message.text, "Hello from a test")
     }

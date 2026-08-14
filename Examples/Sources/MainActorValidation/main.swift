@@ -13,31 +13,22 @@ private struct AppConfiguration {
 }
 
 @MainActor private let applicationModule = module {
-    single(AppConfiguration.self) { _ in AppConfiguration() }
-
-    mainActorSingle(AccountScreenModel.self) { resolver in
-        AccountScreenModel(configuration: try resolver.get())
-    }
+    instance(AppConfiguration())
+    single(AccountScreenModel.self, using: AccountScreenModel.init)
+        .root(.eager)
 }
 
 @main
 @MainActor private struct MainActorValidation {
-    static func main() {
+    static func main() async {
         do {
             // The application owns this policy and may log or fail fast here.
-            guard !isSkeinStarted else {
-                return
-            }
-
-            try startSkein(validating: [
-                DependencyProbe(AppConfiguration.self),
-                DependencyProbe(AccountScreenModel.self)
-            ]) {
-                modules(applicationModule)
+            try await startSkein(validation: .declaredRoots) {
+                applicationModule
             }
             defer { stopSkein() }
 
-            let screenModel: AccountScreenModel = try mainActorGet()
+            let screenModel: AccountScreenModel = try get()
             print("Validated main-actor screen model for \(screenModel.apiBaseURL)")
         } catch {
             print("Application startup validation failed: \(error)")

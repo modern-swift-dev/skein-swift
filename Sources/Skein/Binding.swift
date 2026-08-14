@@ -1,269 +1,112 @@
-/// A dependency registration. Create bindings through `single`, `factory`,
-/// `scoped`, and their main-actor variants.
+/// A dependency registration created by one of Skein's registration functions.
 public struct Binding {
     package let key: BindingKey
     package let lifetime: BindingLifetime
+    package let isolation: BindingIsolation
     package let provider: BindingProvider
     package let disposer: BindingDisposer?
     package let source: SkeinSourceLocation
-    /// `nil` means the provider is opaque; an empty array is a known leaf.
+    /// `nil` means opaque; an empty array means a known leaf.
     package let dependencies: [BindingDependency]?
+    package let rootPolicy: RootPolicy?
+    package let rootSource: SkeinSourceLocation?
 
     package init(
         key: BindingKey,
         lifetime: BindingLifetime,
+        isolation: BindingIsolation,
         provider: BindingProvider,
         disposer: BindingDisposer? = nil,
-        source: SkeinSourceLocation = SkeinSourceLocation(fileID: "<unknown>", line: 0),
-        dependencies: [BindingDependency]? = nil
+        source: SkeinSourceLocation = .init(fileID: "<unknown>", line: 0),
+        dependencies: [BindingDependency]? = nil,
+        rootPolicy: RootPolicy? = nil,
+        rootSource: SkeinSourceLocation? = nil
     ) {
         self.key = key
         self.lifetime = lifetime
+        self.isolation = isolation
         self.provider = provider
         self.disposer = disposer
         self.source = source
         self.dependencies = dependencies
+        self.rootPolicy = rootPolicy
+        self.rootSource = rootSource
+    }
+
+    /// Declares this binding as a structural or eager application root.
+    public func root(
+        _ policy: RootPolicy = .structural,
+        fileID: String = #fileID,
+        line: UInt = #line
+    ) -> Binding {
+        Binding(key: key, lifetime: lifetime, isolation: isolation, provider: provider,
+                disposer: disposer, source: source, dependencies: dependencies,
+                rootPolicy: policy, rootSource: .init(fileID: fileID, line: line))
     }
 }
 
-package enum BindingProvider {
-    case standard((any Resolver) throws -> Any)
-    case mainActor(@MainActor (any Resolver) throws -> Any)
-    case standardAssisted((any Resolver, Any) throws -> Any)
-    case mainActorAssisted(@MainActor (any Resolver, Any) throws -> Any)
+/// Public, stable description of where a binding executes.
+public enum BindingIsolationDescription: Equatable, Hashable, Sendable {
+    case mainActor
+    case nonisolated
+    case customActor(String)
 }
 
-package enum BindingDisposer {
-    case standard((Any) async -> Void)
-    case mainActor(@MainActor (UncheckedDisposalValue) async -> Void)
+package enum BindingIsolation: Hashable, Sendable {
+    case mainActor
+    case nonisolated
+    case customActor(id: ObjectIdentifier, name: String)
+
+    package var description: BindingIsolationDescription {
+        switch self {
+            case .mainActor: .mainActor
+            case .nonisolated: .nonisolated
+            case let .customActor(_, name): .customActor(name)
+        }
+    }
 }
 
-package struct UncheckedDisposalValue: @unchecked Sendable {
+package struct UncheckedProviderValue: @unchecked Sendable {
     package let value: Any
 }
 
-/// Registers a lazily-created dependency shared by every successful resolution.
-public func single<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: ((Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping (any Resolver) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier),
-        lifetime: .single,
-        provider: .standard { resolver in try provider(resolver) },
-        disposer: onClose.map { callback in
-            .standard { value in
-                guard let service = value as? Service else {
-                    return
-                }
-                await callback(service)
-            }
-        },
-        source: SkeinSourceLocation(fileID: fileID, line: line)
-    )
+package struct ActorProviderStorage: Sendable {
+    package let expectedActorID: ObjectIdentifier
+    package let actualActorID: ObjectIdentifier?
+    package let actorName: String
+    package let invoke: @Sendable (any Resolver) async throws -> UncheckedProviderValue
 }
 
-/// Registers a dependency whose provider is invoked on every resolution.
-public func factory<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping (any Resolver) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier),
-        lifetime: .factory,
-        provider: .standard { resolver in try provider(resolver) },
-        source: SkeinSourceLocation(fileID: fileID, line: line)
-    )
+package struct ActorAssistedProviderStorage: Sendable {
+    package let expectedActorID: ObjectIdentifier
+    package let actualActorID: ObjectIdentifier?
+    package let actorName: String
+    package let invoke: @Sendable (any Resolver, UncheckedProviderValue) async throws -> UncheckedProviderValue
 }
 
-/// Registers a factory that receives one strongly typed assisted argument.
-public func factory<Service, Arguments>(
-    _ type: Service.Type,
-    arguments: Arguments.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping (any Resolver, Arguments) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier, argumentType: arguments),
-        lifetime: .factory,
-        provider: .standardAssisted { resolver, value in
-            guard let arguments = value as? Arguments else {
-                throw SkeinError.resolvedTypeMismatch(
-                    expected: String(reflecting: Arguments.self),
-                    actual: String(reflecting: Swift.type(of: value))
-                )
-            }
-            return try provider(resolver, arguments)
-        },
-        source: SkeinSourceLocation(fileID: fileID, line: line)
-    )
+package enum BindingProvider {
+    case mainActor(@MainActor (any Resolver) throws -> Any)
+    case mainActorAssisted(@MainActor (any Resolver, Any) throws -> Any)
+    case nonisolated(@Sendable (any Resolver) throws -> Any)
+    case nonisolatedAssisted(@Sendable (any Resolver, Any) throws -> Any)
+    case customActor(ActorProviderStorage)
+    case customActorAssisted(ActorAssistedProviderStorage)
 }
 
-/// Registers a lazily-created main-actor dependency.
-public func mainActorSingle<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: (@MainActor (Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping @MainActor (any Resolver) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier),
-        lifetime: .single,
-        provider: .mainActor { resolver in try provider(resolver) },
-        disposer: onClose.map { callback in
-            .mainActor { value in
-                guard let service = value.value as? Service else {
-                    return
-                }
-                await callback(service)
-            }
-        },
-        source: SkeinSourceLocation(fileID: fileID, line: line)
-    )
+package struct ActorDisposerStorage: Sendable {
+    package let expectedActorID: ObjectIdentifier
+    package let actualActorID: ObjectIdentifier?
+    package let actorName: String
+    package let invoke: @Sendable (UncheckedProviderValue) async -> Void
 }
 
-/// Registers a main-actor dependency created on every resolution.
-public func mainActorFactory<Service>(
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping @MainActor (any Resolver) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier),
-        lifetime: .factory,
-        provider: .mainActor { resolver in try provider(resolver) },
-        source: SkeinSourceLocation(fileID: fileID, line: line)
-    )
+package enum BindingDisposer {
+    case mainActor(@MainActor (UncheckedProviderValue) async -> Void)
+    case nonisolated(@Sendable (UncheckedProviderValue) async -> Void)
+    case customActor(ActorDisposerStorage)
 }
 
-/// Registers a main-actor factory with one strongly typed assisted argument.
-public func mainActorFactory<Service, Arguments>(
-    _ type: Service.Type,
-    arguments: Arguments.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping @MainActor (any Resolver, Arguments) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier, argumentType: arguments),
-        lifetime: .factory,
-        provider: .mainActorAssisted { resolver, value in
-            guard let arguments = value as? Arguments else {
-                throw SkeinError.resolvedTypeMismatch(
-                    expected: String(reflecting: Arguments.self),
-                    actual: String(reflecting: Swift.type(of: value))
-                )
-            }
-            return try provider(resolver, arguments)
-        },
-        source: SkeinSourceLocation(fileID: fileID, line: line)
-    )
-}
-
-/// Registers a dependency cached once per active scope of `Kind`.
-public func scoped<Service>(
-    _ type: Service.Type,
-    scope: (some SkeinScope).Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: ((Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping (any Resolver) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier),
-        lifetime: .scoped(type: ObjectIdentifier(scope), typeName: String(reflecting: scope)),
-        provider: .standard { resolver in try provider(resolver) },
-        disposer: onClose.map { callback in
-            .standard { value in
-                guard let service = value as? Service else {
-                    return
-                }
-                await callback(service)
-            }
-        },
-        source: SkeinSourceLocation(fileID: fileID, line: line)
-    )
-}
-
-/// Registers a dependency cached once per active scope of `Kind`.
-public func scoped<Service>(
-    _ scope: (some SkeinScope).Type,
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: ((Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping (any Resolver) throws -> Service
-) -> Binding {
-    scoped(
-        type,
-        scope: scope,
-        qualifier: qualifier,
-        onClose: onClose,
-        fileID: fileID,
-        line: line,
-        provider: provider
-    )
-}
-
-/// Registers a main-actor dependency cached once per active scope of `Kind`.
-public func mainActorScoped<Service>(
-    _ type: Service.Type,
-    scope: (some SkeinScope).Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: (@MainActor (Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping @MainActor (any Resolver) throws -> Service
-) -> Binding {
-    Binding(
-        key: BindingKey(type, qualifier: qualifier),
-        lifetime: .scoped(type: ObjectIdentifier(scope), typeName: String(reflecting: scope)),
-        provider: .mainActor { resolver in try provider(resolver) },
-        disposer: onClose.map { callback in
-            .mainActor { value in
-                guard let service = value.value as? Service else {
-                    return
-                }
-                await callback(service)
-            }
-        },
-        source: SkeinSourceLocation(fileID: fileID, line: line)
-    )
-}
-
-/// Registers a main-actor dependency cached once per active scope of `Kind`.
-public func mainActorScoped<Service>(
-    _ scope: (some SkeinScope).Type,
-    _ type: Service.Type,
-    qualifier: (any SkeinQualifier)? = nil,
-    onClose: (@MainActor (Service) async -> Void)? = nil,
-    fileID: String = #fileID,
-    line: UInt = #line,
-    provider: @escaping @MainActor (any Resolver) throws -> Service
-) -> Binding {
-    mainActorScoped(
-        type,
-        scope: scope,
-        qualifier: qualifier,
-        onClose: onClose,
-        fileID: fileID,
-        line: line,
-        provider: provider
-    )
+package struct BindingDependency: Hashable, Sendable {
+    package let key: BindingKey
+    package init(_ type: (some Any).Type) { key = BindingKey(type, qualifier: nil) }
 }

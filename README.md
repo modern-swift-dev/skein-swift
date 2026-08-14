@@ -1,6 +1,6 @@
 # Skein for Swift
 
-`Skein` is a small, type-safe dependency-injection container for Swift. It provides independently owned applications, lazy singletons, factories (including typed assisted factories), flat scopes, main-actor bindings, protocol bindings, typed qualifiers, structural validation, and source-aware resolution diagnostics.
+`Skein` is a small, type-safe dependency-injection container for Swift. Its default API is MainActor-isolated, with explicit Sendable nonisolated and custom-global-actor alternatives.
 
 ## Why Skein?
 
@@ -29,14 +29,12 @@ final class UserService {
 }
 
 let appModule = module {
-    single((any HTTPClient).self) { _ in URLSessionClient() }
-    factory(UserService.self) { resolver in
-        UserService(client: try resolver.get())
-    }
+    single((any HTTPClient).self, provider: { _ in URLSessionClient() })
+    factory(UserService.self, using: UserService.init)
 }
 
 try startSkein {
-    modules(appModule)
+    appModule
 }
 
 let service: UserService = try get()
@@ -68,7 +66,7 @@ The [`Examples`](Examples/README.md) package contains independent, executable us
 - protocol-oriented registrations;
 - qualified bindings;
 - lifecycle and provider-error handling;
-- main-actor services, structural validation, and explicit startup validation;
+- MainActor-first services, binding-owned roots, and async startup validation;
 - test isolation and hand-written fakes.
 
 Run any example directly from the repository root:

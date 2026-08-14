@@ -7,11 +7,14 @@ on:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    container: swift:6.3
+    strategy:
+      matrix:
+        swift-version: ["6.0", "6.3"]
+    container: swift:${{ matrix.swift-version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Swift 6.3
-        run: swift --version | grep -F 'Swift version 6.3'
+      - name: Verify Swift ${{ matrix.swift-version }}
+        run: swift --version | grep -F "Swift version ${{ matrix.swift-version }}"
       - name: Release build
         run: swift build -c release
       - name: Release tests

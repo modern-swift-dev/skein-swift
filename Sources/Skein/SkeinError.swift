@@ -5,8 +5,10 @@ public enum SkeinError: Error, Equatable, Sendable {
     case alreadyStarted
     case duplicateBinding(type: String, qualifier: String?)
     case missingBinding(type: String, qualifier: String?)
-    /// An ordinary `get` attempted to resolve a main-actor binding.
-    case mainActorBindingRequiresMainActor(type: String, qualifier: String?)
+    case bindingIsolationMismatch(type: String, qualifier: String?, required: String, actual: String)
+    case actorIsolationMismatch(type: String, qualifier: String?, expected: String, actual: String?)
+    case scopedBindingCannotBeRoot(type: String, qualifier: String?)
+    case eagerAssistedRoot(type: String, qualifier: String?)
     case circularDependency(path: [String])
     case resolvedTypeMismatch(expected: String, actual: String)
     case applicationClosed

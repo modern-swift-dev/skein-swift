@@ -4,7 +4,7 @@
 
 ## Own an application
 
-`SkeinApplication` is an independently owned container. Use it for tests, previews, or multiple compositions in one process. Its singleton cache and resolution state are isolated from every other application and from the legacy global API.
+`SkeinApplication` is an independently owned container. Use it for tests, previews, or multiple compositions in one process. Its singleton cache and resolution state are isolated from every other application and from the global convenience API.
 
 ```swift
 import Skein
@@ -12,15 +12,15 @@ import Skein
 final class APIClient { }
 
 let application = try SkeinApplication {
-    modules(module {
+    module {
         single(APIClient.self, using: APIClient.init)
-    })
+    }
 }
 
 let client: APIClient = try application.get()
 ```
 
-`SkeinApplication(validating:_:)` accepts a `[DependencyProbe]` on the main actor and validates those runtime roots before the application is returned. The global `startSkein` APIs remain available for applications that deliberately use one process-wide composition.
+Validated construction uses binding-owned roots and `try await SkeinApplication(validation: .declaredRoots)`. The global startup APIs remain available for applications that deliberately use one process-wide composition.
 
 ## Typed assisted factories
 
@@ -34,16 +34,16 @@ final class UserPresenter {
 }
 
 let features = module {
-    factory(UserPresenter.self, arguments: UserID.self) { _, id in
-        UserPresenter(id: id)
-    }
+    factory(UserPresenter.self, arguments: UserID.self, using: UserPresenter.init)
 }
 
-let application = try SkeinApplication { modules(features) }
+let application = try SkeinApplication { features }
 let presenter: UserPresenter = try application.get(arguments: UserID(value: "42"))
 ```
 
-Use `mainActorFactory(_:arguments:qualifier:provider:)` and `mainActorGet(arguments:qualifier:)` for main-actor assisted services.
+The unprefixed factory and resolution APIs are MainActor-isolated. A closure-based assisted provider must spell `provider:` explicitly; a constructor-based assisted factory spells `using:`.
+
+Initializer references include parameters that have Swift default values. Skein therefore treats those parameters as constructor dependencies. When a default should remain in effect, pass a forwarding closure that omits it instead of passing the initializer directly.
 
 ## Flat typed scopes
 
@@ -55,10 +55,10 @@ struct UserScope: SkeinScope { }
 final class UserSession { }
 
 let definitions = module {
-    scoped(UserSession.self, scope: UserScope.self) { _ in UserSession() }
+    scoped(UserSession.self, scope: UserScope.self, provider: { _ in UserSession() })
 }
 
-let application = try SkeinApplication { modules(definitions) }
+let application = try SkeinApplication { definitions }
 let scope = try application.createScope(UserScope.self, id: "user-42")
 let session: UserSession = try scope.get()
 ```
@@ -67,7 +67,7 @@ Only one active `(scope type, ID)` pair is allowed; closing it permits a replace
 
 ## Async disposal
 
-`single` and `scoped` accept optional asynchronous `onClose` callbacks. `mainActorSingle` and `mainActorScoped` accept main-actor callbacks. `close()` is async, idempotent, and disposes successfully created values once in reverse creation order. Closing an application closes active scopes first, then its root singletons.
+`single` and `scoped` accept MainActor asynchronous `onClose` callbacks. Their `nonisolated...` and `actor...` counterparts retain the selected isolation. `close()` is async, idempotent, and disposes successfully created values once in reverse creation order.
 
 ```swift
 final class Connection {
@@ -77,10 +77,10 @@ final class Connection {
 let definitions = module {
     single(Connection.self, onClose: { connection in
         await connection.disconnect()
-    }) { _ in Connection() }
+    }, provider: { _ in Connection() })
 }
 
-let application = try SkeinApplication { modules(definitions) }
+let application = try SkeinApplication { definitions }
 _ = try application.get(Connection.self)
 await application.close()
 ```
@@ -100,6 +100,14 @@ import SwiftUI
 struct AccountView: View {
     @SkeinStateObject<AccountModel> private var model: AccountModel?
 
+    init() {
+        _model = .resolving()
+    }
+
+    init(model: AccountModel) {
+        _model = .instance(model)
+    }
+
     var body: some View {
         if let model { Text(String(describing: model)) }
         else { Text("Could not create account") }
@@ -107,10 +115,10 @@ struct AccountView: View {
 }
 
 let application = try! SkeinApplication {
-    modules(module { mainActorFactory(AccountModel.self) { _ in AccountModel() } })
+    module { factory(AccountModel.self, using: AccountModel.init) }
 }
 
 AccountView().skeinApplication(application)
 ```
 
-`SkeinStateObject` retains either the resolved object or its failure for its SwiftUI identity. Its projected value exposes `Result<Model, Error>?`; no supplied application produces `SkeinSwiftUIError.missingApplication`. To retry after changing the application or assisted arguments, change the view identity with `.id(...)`. The adapter is available on iOS/tvOS 17, macOS 14, watchOS 10, and visionOS 1.
+`SkeinStateObject.resolving(arguments:qualifier:)` supports assisted factories. `.instance(model)` works without an environment application and preserves identity. The wrapper retains either the object or failure; its projected value is `Result<Model, Error>?`.

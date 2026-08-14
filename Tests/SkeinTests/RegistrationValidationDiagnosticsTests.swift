@@ -43,7 +43,7 @@ private final class RegistrationOne {
     init(_: RegistrationD1, _: RegistrationD2, _: RegistrationD3, _: RegistrationD4) {}
 }
 
-private final class RegistrationNeedsMainActor {
+private final class RegistrationNeedsMainActor: @unchecked Sendable {
     init(_: RegistrationMainActor) {}
 }
 
@@ -58,10 +58,10 @@ private final class RegistrationCycleA { init(_: RegistrationCycleB) {} }
 private final class RegistrationCycleB { init(_: RegistrationCycleA) {} }
 private final class RegistrationSelfCycle { init() {} }
 
-final class RegistrationValidationDiagnosticsTests: XCTestCase {
+@MainActor final class RegistrationValidationDiagnosticsTests: XCTestCase {
     func testConstructorRegistrationSupportsProtocolAndAritiesZeroThroughFour() throws {
         let application = try SkeinApplication {
-            modules(module {
+            module {
                 factory((any RegistrationProtocol).self, using: RegistrationImplementation.init)
                 factory(RegistrationD1.self, using: RegistrationD1.init)
                 factory(RegistrationD2.self, using: RegistrationD2.init)
@@ -71,7 +71,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
                 factory(RegistrationTwo.self, using: RegistrationTwo.init)
                 factory(RegistrationThree.self, using: RegistrationThree.init)
                 factory(RegistrationFour.self, using: RegistrationFour.init)
-            })
+            }
         }
 
         let implementation: any RegistrationProtocol = try application.get()
@@ -88,24 +88,24 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
 
     @MainActor func testMainActorConstructorRegistrationCompilesAndResolvesDependencies() throws {
         let application = try SkeinApplication {
-            modules(module {
+            module {
                 factory(RegistrationD1.self, using: RegistrationD1.init)
                 factory(RegistrationD2.self, using: RegistrationD2.init)
                 factory(RegistrationD3.self, using: RegistrationD3.init)
                 factory(RegistrationD4.self, using: RegistrationD4.init)
-                mainActorFactory(RegistrationMainActorZero.self, using: RegistrationMainActorZero.init)
-                mainActorFactory(RegistrationMainActor.self, using: RegistrationMainActor.init)
-                mainActorFactory(RegistrationMainActorTwo.self, using: RegistrationMainActorTwo.init)
-                mainActorFactory(RegistrationMainActorThree.self, using: RegistrationMainActorThree.init)
-                mainActorFactory(RegistrationMainActorFour.self, using: RegistrationMainActorFour.init)
-            })
+                factory(RegistrationMainActorZero.self, using: RegistrationMainActorZero.init)
+                factory(RegistrationMainActor.self, using: RegistrationMainActor.init)
+                factory(RegistrationMainActorTwo.self, using: RegistrationMainActorTwo.init)
+                factory(RegistrationMainActorThree.self, using: RegistrationMainActorThree.init)
+                factory(RegistrationMainActorFour.self, using: RegistrationMainActorFour.init)
+            }
         }
-        let value: RegistrationMainActor = try application.mainActorGet()
+        let value: RegistrationMainActor = try application.get()
         XCTAssertNotNil(value)
-        let zero: RegistrationMainActorZero = try application.mainActorGet()
-        let two: RegistrationMainActorTwo = try application.mainActorGet()
-        let three: RegistrationMainActorThree = try application.mainActorGet()
-        let four: RegistrationMainActorFour = try application.mainActorGet()
+        let zero: RegistrationMainActorZero = try application.get()
+        let two: RegistrationMainActorTwo = try application.get()
+        let three: RegistrationMainActorThree = try application.get()
+        let four: RegistrationMainActorFour = try application.get()
         XCTAssertNotNil(zero)
         XCTAssertNotNil(two)
         XCTAssertNotNil(three)
@@ -119,9 +119,9 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
                 executions += 1
                 return RegistrationD1()
             }
-            factory(RegistrationOne.self, using: RegistrationOne.init)
-        }.validating(RegistrationOne.self)
-        let application = try SkeinApplication { modules(definition) }
+            factory(RegistrationOne.self, using: RegistrationOne.init).root()
+        }
+        let application = try SkeinApplication { definition }
 
         let report = try application.validateGraph()
 
@@ -132,22 +132,25 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
 
     func testValidationDetectsStandardToMainActorAndRootToScopeViolations() throws {
         let actorApplication = try SkeinApplication {
-            modules(module {
-                mainActorFactory(RegistrationMainActor.self, using: { RegistrationMainActor(RegistrationD1()) })
-                factory(RegistrationNeedsMainActor.self, using: RegistrationNeedsMainActor.init)
-            }.validating(RegistrationNeedsMainActor.self))
+            module {
+                factory(RegistrationMainActor.self, using: { RegistrationMainActor(RegistrationD1()) })
+                nonisolatedFactory(
+                    RegistrationNeedsMainActor.self,
+                    using: RegistrationNeedsMainActor.init
+                ).root()
+            }
         }
         XCTAssertThrowsError(try actorApplication.validateGraph()) { error in
-            guard case .mainActorDependencyRequiresMainActor = error as? GraphValidationError else {
+            guard case .isolationMismatch = error as? GraphValidationError else {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
 
         let scopeApplication = try SkeinApplication {
-            modules(module {
+            module {
                 scoped(RegistrationScopeA.self, RegistrationD1.self) { _ in RegistrationD1() }
-                factory(RegistrationOne.self, using: RegistrationOne.init)
-            }.validating(RegistrationOne.self))
+                factory(RegistrationOne.self, using: RegistrationOne.init).root()
+            }
         }
         XCTAssertThrowsError(try scopeApplication.validateGraph()) { error in
             guard case .rootDependsOnScopedBinding = error as? GraphValidationError else {
@@ -156,7 +159,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
         }
     }
 
-    func testValidationDetectsCrossScopeKnownEdge() throws {
+    func testScopedBindingCannotBeDeclaredAsApplicationRoot() throws {
         let source = SkeinSourceLocation(fileID: #fileID, line: #line)
         let parent = Binding(
             key: BindingKey(RegistrationOne.self, qualifier: nil),
@@ -164,25 +167,17 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
                 type: ObjectIdentifier(RegistrationScopeA.self),
                 typeName: String(reflecting: RegistrationScopeA.self)
             ),
-            provider: .standard { _ in RegistrationOne(RegistrationD1()) },
+            isolation: .mainActor,
+            provider: .mainActor { _ in RegistrationOne(RegistrationD1()) },
             source: source,
-            dependencies: [.init(RegistrationD1.self)]
+            dependencies: [.init(RegistrationD1.self)],
+            rootPolicy: .structural,
+            rootSource: source
         )
-        let child = Binding(
-            key: BindingKey(RegistrationD1.self, qualifier: nil),
-            lifetime: .scoped(
-                type: ObjectIdentifier(RegistrationScopeB.self),
-                typeName: String(reflecting: RegistrationScopeB.self)
-            ),
-            provider: .standard { _ in RegistrationD1() },
-            source: source,
-            dependencies: []
-        )
-        let definition = Module(bindings: [parent, child], validationRoots: [ValidationRoot(RegistrationOne.self)])
-        let application = try SkeinApplication { modules(definition) }
+        let definition = Module(bindings: [parent])
 
-        XCTAssertThrowsError(try application.validateGraph()) { error in
-            guard case .crossScopeDependency = error as? GraphValidationError else {
+        XCTAssertThrowsError(try SkeinApplication { definition }) { error in
+            guard case .scopedBindingCannotBeRoot = error as? SkeinError else {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
@@ -190,9 +185,9 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
 
     func testValidationDetectsMissingBindingAndKnownCycle() throws {
         let missing = try SkeinApplication {
-            modules(module {
-                factory(RegistrationOne.self, using: RegistrationOne.init)
-            }.validating(RegistrationOne.self))
+            module {
+                factory(RegistrationOne.self, using: RegistrationOne.init).root()
+            }
         }
         XCTAssertThrowsError(try missing.validateGraph()) { error in
             guard case .missingBinding = error as? GraphValidationError else {
@@ -201,10 +196,10 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
         }
 
         let cyclic = try SkeinApplication {
-            modules(module {
-                factory(RegistrationCycleA.self, using: RegistrationCycleA.init)
+            module {
+                factory(RegistrationCycleA.self, using: RegistrationCycleA.init).root()
                 factory(RegistrationCycleB.self, using: RegistrationCycleB.init)
-            }.validating(RegistrationCycleA.self))
+            }
         }
         XCTAssertThrowsError(try cyclic.validateGraph()) { error in
             guard case let .circularDependency(path) = error as? GraphValidationError else {
@@ -216,11 +211,11 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
 
     func testDirectRuntimeSelfCycleKeepsBothTraceFrames() throws {
         let application = try SkeinApplication {
-            modules(module {
+            module {
                 factory(RegistrationSelfCycle.self) { resolver in
                     try resolver.get(RegistrationSelfCycle.self)
                 }
-            })
+            }
         }
 
         XCTAssertThrowsError(try application.get(RegistrationSelfCycle.self)) { error in
@@ -242,7 +237,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
             }
             factory(RegistrationNested.self, using: RegistrationNested.init)
         }
-        let application = try SkeinApplication { modules(definition) }
+        let application = try SkeinApplication { definition }
 
         XCTAssertThrowsError(try application.get(RegistrationNested.self)) { error in
             guard let resolution = error as? SkeinResolutionError else {
@@ -264,7 +259,7 @@ final class RegistrationValidationDiagnosticsTests: XCTestCase {
             factory(RegistrationD1.self) { _ in RegistrationD1() }
             factory(RegistrationD1.self) { _ in RegistrationD1() }
         }
-        XCTAssertThrowsError(try SkeinApplication { modules(definition) }) { error in
+        XCTAssertThrowsError(try SkeinApplication { definition }) { error in
             guard let configuration = error as? SkeinConfigurationError else {
                 return XCTFail("Unexpected error: \(error)")
             }

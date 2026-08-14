@@ -23,17 +23,11 @@ public extension Module {
               Set(overlayIdentities).count == overlayIdentities.count else {
             // Preserve invalid input so ordinary container validation still
             // reports duplicates within either source module.
-            return Module(
-                bindings: bindings + overlay.bindings,
-                validationRoots: validationRoots + overlay.validationRoots
-            )
+            return Module(bindings: bindings + overlay.bindings)
         }
 
         let replaced = Set(overlayIdentities)
         let retainedBase = bindings.filter { !replaced.contains(ModuleBindingIdentity($0)) }
-        return Module(
-            bindings: retainedBase + overlay.bindings,
-            validationRoots: validationRoots + overlay.validationRoots
-        )
+        return Module(bindings: retainedBase + overlay.bindings)
     }
 }

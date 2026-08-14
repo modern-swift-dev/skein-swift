@@ -10,13 +10,13 @@ final class Attempts {
 
 let attempts = Attempts()
 let retryModule = module {
-    single(String.self) { _ in
+    single(String.self, provider: { _ in
         attempts.count += 1
         guard attempts.count > 1 else {
             throw ConnectionError.unavailable
         }
         return "connected"
-    }
+    })
 }
 
 do {
@@ -29,7 +29,7 @@ do {
 
 do {
     try startSkein {
-        modules(retryModule)
+        retryModule
     }
     defer { stopSkein() }
 

@@ -2,7 +2,7 @@
 
 [Documentation index](README.md)
 
-Modules keep registrations close to the feature that owns them. Pass any number of modules to `modules(...)` when starting Skein.
+Modules keep registrations close to the feature that owns them. Application builders accept individual modules, arrays, optionals, conditions, and loops directly.
 
 ```swift
 import Skein
@@ -24,17 +24,16 @@ final class ArticleRepository {
 }
 
 let networking = module {
-    single((any HTTPClient).self) { _ in URLSessionClient() }
+    single((any HTTPClient).self, provider: { _ in URLSessionClient() })
 }
 
 let articles = module {
-    factory(ArticleRepository.self) { resolver in
-        ArticleRepository(client: try resolver.get())
-    }
+    factory(ArticleRepository.self, using: ArticleRepository.init)
 }
 
 try startSkein {
-    modules(networking, articles)
+    networking
+    articles
 }
 ```
 
@@ -53,16 +52,16 @@ All modules are collected during application creation. Registering the same type
 
 ```swift
 let production = module {
-    single((any HTTPClient).self) { _ in URLSessionClient() }
+    single((any HTTPClient).self, provider: { _ in URLSessionClient() })
 }
 final class PreviewHTTPClient: HTTPClient {
     func get(path: String) throws -> String { "preview" }
 }
 let preview = module {
-    single((any HTTPClient).self) { _ in PreviewHTTPClient() }
+    single((any HTTPClient).self, provider: { _ in PreviewHTTPClient() })
 }
 
 let previewApplication = try SkeinApplication {
-    modules(production.overriding(preview))
+    production.overriding(preview)
 }
 ```

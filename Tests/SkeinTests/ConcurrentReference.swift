@@ -1,1 +1,1 @@
-package final class ConcurrentReference {}
+package final class ConcurrentReference: @unchecked Sendable {}

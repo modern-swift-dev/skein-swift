@@ -29,19 +29,23 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
     }
 }
 
-final class SkeinTests: XCTestCase {
+@MainActor final class SkeinTests: XCTestCase {
     private static let globalSkeinTestLock = NSLock()
 
-    override func setUp() {
-        super.setUp()
-        Self.globalSkeinTestLock.lock()
-        stopSkein()
+    override func setUp() async throws {
+        try await super.setUp()
+        await MainActor.run {
+            Self.globalSkeinTestLock.lock()
+            stopSkein()
+        }
     }
 
-    override func tearDown() {
-        stopSkein()
-        Self.globalSkeinTestLock.unlock()
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            stopSkein()
+            Self.globalSkeinTestLock.unlock()
+        }
+        try await super.tearDown()
     }
 
     func testSingletonIsCreatedOnceAndFactoryCreatesEachTime() throws {
@@ -52,7 +56,7 @@ final class SkeinTests: XCTestCase {
             }
         }
 
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
         let first: Reference = try get()
         let second: Reference = try get()
@@ -68,16 +72,16 @@ final class SkeinTests: XCTestCase {
         let constructions = LockedCounter()
         let failures = LockedCounter()
         let definitions = module {
-            single(ConcurrentReference.self) { _ in
+            nonisolatedSingle(ConcurrentReference.self) { _ in
                 constructions.increment()
                 return ConcurrentReference()
             }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
         DispatchQueue.concurrentPerform(iterations: 64) { _ in
             do {
-                let _: ConcurrentReference = try get()
+                let _: ConcurrentReference = try nonisolatedGet()
             } catch {
                 failures.increment()
             }
@@ -97,7 +101,10 @@ final class SkeinTests: XCTestCase {
             }
         }
 
-        try startSkein { modules(networking, feature) }
+        try startSkein {
+            networking
+            feature
+        }
 
         let service: FeatureService = try get()
         XCTAssertEqual(service.client.value, "client")
@@ -108,7 +115,7 @@ final class SkeinTests: XCTestCase {
             single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
             single(String.self, qualifier: ClientKind.background) { _ in "background" }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
         XCTAssertEqual(try get(String.self, qualifier: ClientKind.primary), "primary")
         XCTAssertEqual(try get(String.self, qualifier: ClientKind.background), "background")
@@ -119,7 +126,7 @@ final class SkeinTests: XCTestCase {
             single(String.self, qualifier: PrimaryQualifier.primary) { _ in "first" }
             single(String.self, qualifier: SecondaryQualifier.primary) { _ in "second" }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
         XCTAssertEqual(try get(String.self, qualifier: PrimaryQualifier.primary), "first")
         XCTAssertEqual(try get(String.self, qualifier: SecondaryQualifier.primary), "second")
@@ -129,7 +136,7 @@ final class SkeinTests: XCTestCase {
         let definitions = module {
             single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
         XCTAssertThrowsError(try get(Int.self)) { error in
             guard case let .missingBinding(type, qualifier) = underlyingSkeinError(error) else {
@@ -155,9 +162,9 @@ final class SkeinTests: XCTestCase {
         let definitions = module {
             single(Reference.self) { _ in Reference() }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
-        XCTAssertThrowsError(try startSkein { modules(definitions) }) { error in
+        XCTAssertThrowsError(try startSkein { definitions }) { error in
             XCTAssertEqual(error as? SkeinError, .alreadyStarted)
         }
 
@@ -166,7 +173,7 @@ final class SkeinTests: XCTestCase {
             single(Reference.self) { _ in Reference() }
             factory(Reference.self) { _ in Reference() }
         }
-        XCTAssertThrowsError(try startSkein { modules(duplicate) }) { error in
+        XCTAssertThrowsError(try startSkein { duplicate }) { error in
             guard case let .duplicateBinding(type, qualifier) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a duplicate-binding error, got \(error)")
             }
@@ -184,7 +191,7 @@ final class SkeinTests: XCTestCase {
                 CycleB(dependency: try resolver.get())
             }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
         XCTAssertThrowsError(try get(CycleA.self)) { error in
             guard case let .circularDependency(path) = underlyingSkeinError(error) else {
@@ -203,11 +210,11 @@ final class SkeinTests: XCTestCase {
             }
         }
 
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
         let first: Reference = try get()
         stopSkein()
 
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
         let second: Reference = try get()
 
         XCTAssertFalse(first === second)
@@ -225,7 +232,7 @@ final class SkeinTests: XCTestCase {
                 return "available"
             }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
         XCTAssertThrowsError(try get(String.self)) { error in
             XCTAssertEqual(
@@ -237,22 +244,22 @@ final class SkeinTests: XCTestCase {
         XCTAssertEqual(attempts.count, 2)
     }
 
-    @MainActor func testMainActorSingletonAndFactoryRespectTheirLifetimes() throws {
+    func testMainActorSingletonAndFactoryRespectTheirLifetimes() throws {
         let definitions = module {
             single(Reference.self) { _ in Reference() }
-            mainActorSingle(MainActorService.self) { resolver in
+            single(MainActorService.self) { resolver in
                 MainActorService(reference: try resolver.get())
             }
-            mainActorFactory(MainActorFactoryValue.self) { resolver in
-                MainActorFactoryValue(service: try resolver.mainActorGet())
+            factory(MainActorFactoryValue.self) { resolver in
+                MainActorFactoryValue(service: try resolver.get())
             }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
-        let singleton: MainActorService = try mainActorGet()
-        let sameSingleton: MainActorService = try mainActorGet()
-        let firstFactory: MainActorFactoryValue = try mainActorGet()
-        let secondFactory: MainActorFactoryValue = try mainActorGet()
+        let singleton: MainActorService = try get()
+        let sameSingleton: MainActorService = try get()
+        let firstFactory: MainActorFactoryValue = try get()
+        let secondFactory: MainActorFactoryValue = try get()
 
         XCTAssertTrue(singleton === sameSingleton)
         XCTAssertFalse(firstFactory === secondFactory)
@@ -260,100 +267,76 @@ final class SkeinTests: XCTestCase {
         XCTAssertTrue(firstFactory.service === secondFactory.service)
     }
 
-    @MainActor func testOrdinaryResolutionRejectsMainActorBindingEvenAfterCaching() async throws {
+    func testNonisolatedResolutionRejectsMainActorBindingEvenAfterCaching() async throws {
         let definitions = module {
-            mainActorSingle(MainActorService.self) { _ in MainActorService(reference: Reference()) }
+            single(MainActorService.self) { _ in MainActorService(reference: Reference()) }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
 
-        let _: MainActorService = try mainActorGet()
-        XCTAssertThrowsError(try get(MainActorService.self)) { error in
-            guard case let .mainActorBindingRequiresMainActor(type, qualifier) = underlyingSkeinError(error) else {
-                return XCTFail("Expected a main-actor binding error, got \(error)")
-            }
-            XCTAssertEqual(type, String(reflecting: MainActorService.self))
-            XCTAssertNil(qualifier)
-        }
+        let _: MainActorService = try get()
 
         let offActorError = await Task.detached { () -> SkeinError? in
             do {
-                let _: MainActorService = try get()
+                let _: MainActorService = try nonisolatedGet()
                 return nil
             } catch {
                 return underlyingSkeinError(error)
             }
         }.value
-        guard case let .mainActorBindingRequiresMainActor(type, qualifier)? = offActorError else {
-            return XCTFail("Expected a main-actor binding error, got \(String(describing: offActorError))")
+        guard case .bindingIsolationMismatch? = offActorError else {
+            return XCTFail("Expected an isolation mismatch, got \(String(describing: offActorError))")
         }
-        XCTAssertEqual(type, String(reflecting: MainActorService.self))
-        XCTAssertNil(qualifier)
     }
 
-    @MainActor func testValidatedStartupProbesProtocolAndQualifiedBindings() throws {
+    func testValidatedStartupResolvesDeclaredEagerRoots() async throws {
         let definitions = module {
-            single((any Client).self) { _ in TestClient() }
-            single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
+            single((any Client).self) { _ in TestClient() }.root(.eager)
+            single(String.self, qualifier: ClientKind.primary) { _ in "primary" }.root(.eager)
         }
 
-        try startSkein(
-            validating: [
-                DependencyProbe((any Client).self),
-                DependencyProbe(String.self, qualifier: ClientKind.primary)
-            ]
-        ) {
-            modules(definitions)
+        try await startSkein(validation: .declaredRoots) {
+            definitions
         }
 
-        let client: any Client = try mainActorGet()
+        let client: any Client = try get()
         XCTAssertEqual(client.value, "client")
-        XCTAssertEqual(try mainActorGet(String.self, qualifier: ClientKind.primary), "primary")
+        XCTAssertEqual(try get(String.self, qualifier: ClientKind.primary), "primary")
+        XCTAssertNotNil(currentSkeinValidationReport)
     }
 
-    @MainActor func testValidationRetainsSingletonsAndDoesNotCacheFactories() throws {
+    func testValidationRetainsSingletonsAndDoesNotCacheFactories() async throws {
         let singletonConstructions = LockedCounter()
         let factoryConstructions = LockedCounter()
         let definitions = module {
             single(Reference.self) { _ in
                 singletonConstructions.increment()
                 return Reference()
-            }
+            }.root(.eager)
             factory(FactoryValue.self) { resolver in
                 factoryConstructions.increment()
                 return FactoryValue(reference: try resolver.get())
-            }
+            }.root(.eager)
         }
 
-        try startSkein(
-            validating: [DependencyProbe(Reference.self), DependencyProbe(FactoryValue.self)]
-        ) {
-            modules(definitions)
+        try await startSkein(validation: .declaredRoots) {
+            definitions
         }
 
-        let _: Reference = try mainActorGet()
-        let _: FactoryValue = try mainActorGet()
+        let _: Reference = try get()
+        let _: FactoryValue = try get()
         XCTAssertEqual(singletonConstructions.value, 1)
         XCTAssertEqual(factoryConstructions.value, 2)
     }
 
-    @MainActor func testValidationReportsMissingCircularAndDuplicateBindings() throws {
-        XCTAssertThrowsError(try startSkein(validating: [DependencyProbe(Reference.self)]) {}) { error in
-            guard case let .missingBinding(type, qualifier) = underlyingSkeinError(error) else {
-                return XCTFail("Expected a missing-binding error, got \(error)")
-            }
-            XCTAssertEqual(type, String(reflecting: Reference.self))
-            XCTAssertNil(qualifier)
-        }
-        XCTAssertFalse(isSkeinStarted)
-
+    func testValidationReportsCircularAndDuplicateBindings() async throws {
         let cyclic = module {
-            factory(CycleA.self) { resolver in CycleA(dependency: try resolver.get()) }
-            factory(CycleB.self) { resolver in CycleB(dependency: try resolver.get()) }
+            factory(CycleA.self, using: CycleA.init).root()
+            factory(CycleB.self, using: CycleB.init)
         }
-        XCTAssertThrowsError(try startSkein(validating: [DependencyProbe(CycleA.self)]) { modules(cyclic) }) { error in
-            guard case let .circularDependency(path) = underlyingSkeinError(error) else {
-                return XCTFail("Expected a circular-dependency error, got \(error)")
-            }
+        do {
+            try await startSkein(validation: .declaredRoots) { cyclic }
+            XCTFail("Expected circular dependency")
+        } catch let GraphValidationError.circularDependency(path) {
             XCTAssertEqual(path.count, 3)
         }
         XCTAssertFalse(isSkeinStarted)
@@ -362,7 +345,7 @@ final class SkeinTests: XCTestCase {
             single(Reference.self) { _ in Reference() }
             factory(Reference.self) { _ in Reference() }
         }
-        XCTAssertThrowsError(try startSkein(validating: []) { modules(duplicate) }) { error in
+        XCTAssertThrowsError(try startSkein { duplicate }) { error in
             guard case let .duplicateBinding(type, qualifier) = underlyingSkeinError(error) else {
                 return XCTFail("Expected a duplicate-binding error, got \(error)")
             }
@@ -377,7 +360,7 @@ final class SkeinTests: XCTestCase {
         let definitions = module {
             single(Reference.self) { _ in Reference() }
         }
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
         XCTAssertTrue(isSkeinStarted)
 
         let falseReads = LockedCounter()
@@ -390,53 +373,29 @@ final class SkeinTests: XCTestCase {
 
         stopSkein()
         XCTAssertFalse(isSkeinStarted)
-        try startSkein { modules(definitions) }
+        try startSkein { definitions }
         XCTAssertTrue(isSkeinStarted)
     }
 
-    @MainActor func testValidationReportsResolvedTypeMismatchAndDoesNotStartSkein() throws {
-        let malformed = module {
-            Binding(
-                key: BindingKey(Reference.self, qualifier: nil),
-                lifetime: .factory,
-                provider: .standard { _ in "not a reference" }
-            )
-        }
-
-        XCTAssertThrowsError(
-            try startSkein(validating: [DependencyProbe(Reference.self)]) { modules(malformed) }
-        ) { error in
-            guard case let .resolvedTypeMismatch(expected, actual) = underlyingSkeinError(error) else {
-                return XCTFail("Expected a resolved-type-mismatch error, got \(error)")
-            }
-            XCTAssertEqual(expected, String(reflecting: Reference.self))
-            XCTAssertEqual(actual, String(reflecting: String.self))
-        }
-        XCTAssertFalse(isSkeinStarted)
-        XCTAssertThrowsError(try get(Reference.self)) { error in
-            XCTAssertEqual(error as? SkeinError, .notStarted)
-        }
-    }
-
-    @MainActor func testFailedValidationDoesNotRollbackEarlierProviderSideEffects() throws {
+    func testFailedEagerValidationDoesNotRollbackEarlierProviderSideEffects() async throws {
         let factoryConstructions = LockedCounter()
         let definitions = module {
             factory(String.self) { _ in
                 factoryConstructions.increment()
                 return "validated first"
-            }
+            }.root(.eager)
+            factory(Reference.self) { _ in throw ProviderFailure.failed }.root(.eager)
         }
 
-        XCTAssertThrowsError(
-            try startSkein(
-                validating: [DependencyProbe(String.self), DependencyProbe(Reference.self)]
-            ) {
-                modules(definitions)
+        do {
+            try await startSkein(validation: .declaredRoots) {
+                definitions
             }
-        ) { error in
-            guard case .missingBinding = underlyingSkeinError(error) else {
-                return XCTFail("Expected a missing-binding error, got \(error)")
-            }
+            XCTFail("Expected provider failure")
+        } catch {
+            let providerError = (error as? SkeinResolutionError)?.underlying as? ProviderFailure
+                ?? error as? ProviderFailure
+            XCTAssertEqual(providerError, .failed)
         }
         XCTAssertEqual(factoryConstructions.value, 1)
         XCTAssertFalse(isSkeinStarted)

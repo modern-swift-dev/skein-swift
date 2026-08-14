@@ -31,15 +31,13 @@ final class WelcomeService {
     }
 }
 
-final class WelcomeServiceTests: XCTestCase {
+@MainActor final class WelcomeServiceTests: XCTestCase {
     func testWelcomeMessage() throws {
         let testModule = module {
-            single((any UserAPI).self) { _ in FakeUserAPI() }
-            factory(WelcomeService.self) { resolver in
-                WelcomeService(api: try resolver.get())
-            }
+            single((any UserAPI).self, provider: { _ in FakeUserAPI() })
+            factory(WelcomeService.self, using: WelcomeService.init)
         }
-        let application = try SkeinApplication { modules(testModule) }
+        let application = try SkeinApplication { testModule }
 
         let service: WelcomeService = try application.get()
         XCTAssertEqual(try service.message(), "Welcome, Ada")
@@ -47,7 +45,7 @@ final class WelcomeServiceTests: XCTestCase {
 }
 ```
 
-For tests with main-actor services, make the test `@MainActor` and use `application.mainActorGet`. For startup validation tests, use `SkeinApplication(validating:manifest)` on the main actor. Runtime probes can instantiate values; structural `validateGraph()` does not execute providers and reports reached closure registrations as opaque.
+Make MainActor-first tests `@MainActor` and use `application.get`. For startup validation, mark bindings with `.root()` or `.root(.eager)` and use `try await SkeinApplication(validation: .declaredRoots)`. The retained report lists reached opaque providers.
 
 For a test that needs to inspect calls or return different values, use a manually written fake that stores the state your assertion needs. Register it as a `single` when the system under test and the assertion must observe the same fake instance.
 

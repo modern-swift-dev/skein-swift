@@ -8,7 +8,7 @@ Each target is intentionally small and demonstrates one integration pattern usin
 | `ModularComposition` | Splitting bindings across modules and exposing an implementation as a protocol |
 | `QualifiedBindings` | Registering and resolving multiple values of the same type |
 | `ErrorHandling` | Inspecting `SkeinResolutionError`, recovering underlying provider errors, and retrying failed singletons |
-| `MainActorValidation` | Main-actor bindings, an explicit validation manifest, and application-owned startup policy |
+| `MainActorValidation` | MainActor-first bindings, binding-owned eager roots, and async validated startup |
 | `TestingExampleTests` | Replacing a production module with a hand-written fake and isolating test containers |
 
 From this directory, run an executable with:

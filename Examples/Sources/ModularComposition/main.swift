@@ -35,24 +35,22 @@ final class ProfilePresenter {
 }
 
 let networkingModule = module {
-    single((any APIClient).self) { _ in LiveAPIClient() }
+    single((any APIClient).self, provider: { _ in LiveAPIClient() })
 }
 
 let dataModule = module {
-    single(UserRepository.self) { resolver in
-        UserRepository(client: try resolver.get())
-    }
+    single(UserRepository.self, using: UserRepository.init)
 }
 
 let featureModule = module {
-    factory(ProfilePresenter.self) { resolver in
-        ProfilePresenter(repository: try resolver.get())
-    }
+    factory(ProfilePresenter.self, using: ProfilePresenter.init)
 }
 
 do {
     try startSkein {
-        modules(networkingModule, dataModule, featureModule)
+        networkingModule
+        dataModule
+        featureModule
     }
     defer { stopSkein() }
 

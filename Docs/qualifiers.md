@@ -22,15 +22,15 @@ enum EndpointKind: SkeinQualifier {
 }
 
 let endpoints = module {
-    single((any APIEndpoint).self, qualifier: EndpointKind.production) { _ in
+    single((any APIEndpoint).self, qualifier: EndpointKind.production, provider: { _ in
         Endpoint(baseURL: URL(string: "https://api.example.com")!)
-    }
-    single((any APIEndpoint).self, qualifier: EndpointKind.staging) { _ in
+    })
+    single((any APIEndpoint).self, qualifier: EndpointKind.staging, provider: { _ in
         Endpoint(baseURL: URL(string: "https://staging.example.com")!)
-    }
+    })
 }
 
-try startSkein { modules(endpoints) }
+try startSkein { endpoints }
 
 let production = try get(
     (any APIEndpoint).self,

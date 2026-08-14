@@ -57,13 +57,13 @@ private final class ScopeBox: @unchecked Sendable {
     }
 }
 
-final class ErgonomicsTests: XCTestCase {
+@MainActor final class ErgonomicsTests: XCTestCase {
     func testApplicationsOwnIndependentSingletonCaches() throws {
         let definitions = module {
             single(ErgonomicReference.self) { _ in ErgonomicReference() }
         }
-        let first = try SkeinApplication { modules(definitions) }
-        let second = try SkeinApplication { modules(definitions) }
+        let first = try SkeinApplication { definitions }
+        let second = try SkeinApplication { definitions }
 
         let firstValue: ErgonomicReference = try first.get()
         let sameFirstValue: ErgonomicReference = try first.get()
@@ -75,12 +75,12 @@ final class ErgonomicsTests: XCTestCase {
 
     func testNestedResolutionAcrossApplicationsDoesNotCreateFalseCycle() throws {
         let second = try SkeinApplication {
-            modules(module { factory(String.self) { _ in "second" } })
+            module { factory(String.self) { _ in "second" } }
         }
         let first = try SkeinApplication {
-            modules(module {
+            module {
                 factory(String.self) { _ in "first:\(try second.get(String.self))" }
-            })
+            }
         }
 
         XCTAssertEqual(try first.get(String.self), "first:second")
@@ -88,11 +88,11 @@ final class ErgonomicsTests: XCTestCase {
 
     func testAssistedFactoriesCoexistByArgumentType() throws {
         let application = try SkeinApplication {
-            modules(module {
-                factory(String.self, arguments: Int.self) { _, value in "int:\(value)" }
-                factory(String.self, arguments: Bool.self) { _, value in "bool:\(value)" }
+            module {
+                factory(String.self, arguments: Int.self, provider: { _, value in "int:\(value)" })
+                factory(String.self, arguments: Bool.self, provider: { _, value in "bool:\(value)" })
                 factory(String.self) { _ in "ordinary" }
-            })
+            }
         }
 
         XCTAssertEqual(try application.get(String.self), "ordinary")
@@ -102,11 +102,11 @@ final class ErgonomicsTests: XCTestCase {
 
     func testScopeShadowsRootCachesPerScopeAndSharesRootSingletons() throws {
         let application = try SkeinApplication {
-            modules(module {
+            module {
                 single(String.self) { _ in "root" }
                 single(ErgonomicReference.self) { _ in ErgonomicReference() }
                 scoped(UserScope.self, String.self) { _ in UUID().uuidString }
-            })
+            }
         }
         let first = try application.createScope(UserScope.self, id: "first")
         let second = try application.createScope(UserScope.self, id: "second")
@@ -125,18 +125,18 @@ final class ErgonomicsTests: XCTestCase {
         let constructions = LockedCounter()
         let failures = LockedCounter()
         let application = try SkeinApplication {
-            modules(module {
-                scoped(UserScope.self, ErgonomicReference.self) { _ in
+            module {
+                nonisolatedScoped(UserScope.self, ErgonomicReference.self) { _ in
                     constructions.increment()
                     return ErgonomicReference()
                 }
-            })
+            }
         }
         let scope = try application.createScope(UserScope.self, id: "concurrent")
 
         DispatchQueue.concurrentPerform(iterations: 64) { _ in
             do {
-                let _: ErgonomicReference = try scope.get()
+                let _: ErgonomicReference = try scope.nonisolatedGet()
             } catch {
                 failures.increment()
             }
@@ -148,10 +148,10 @@ final class ErgonomicsTests: XCTestCase {
 
     func testScopeKindsHaveIndependentBindingsAndDuplicateActiveIDsAreRejected() async throws {
         let application = try SkeinApplication {
-            modules(module {
+            module {
                 scoped(UserScope.self, String.self) { _ in "user" }
                 scoped(SessionScope.self, String.self) { _ in "session" }
-            })
+            }
         }
         let user = try application.createScope(UserScope.self, id: 1)
         let session = try application.createScope(SessionScope.self, id: 1)
@@ -171,7 +171,7 @@ final class ErgonomicsTests: XCTestCase {
     func testCloseDisposesScopesBeforeSingletonsInReverseCreationOrder() async throws {
         let log = DisposalLog()
         let application = try SkeinApplication {
-            modules(module {
+            module {
                 single(
                     String.self,
                     onClose: { _ in await log.append("root") },
@@ -183,7 +183,7 @@ final class ErgonomicsTests: XCTestCase {
                     onClose: { value in await log.append(value.value) },
                     provider: { _ in ErgonomicReference("scope") }
                 )
-            })
+            }
         }
         let scope = try application.createScope(UserScope.self, id: "scope")
         let _: String = try application.get()
@@ -198,8 +198,8 @@ final class ErgonomicsTests: XCTestCase {
             XCTAssertEqual(ergonomicUnderlyingSkeinError(error), .applicationClosed)
         }
         XCTAssertThrowsError(try scope.get(ErgonomicReference.self)) { error in
-            guard case .applicationClosed = ergonomicUnderlyingSkeinError(error) else {
-                return XCTFail("Expected applicationClosed, got \(error)")
+            guard case .scopeClosed = ergonomicUnderlyingSkeinError(error) else {
+                return XCTFail("Expected scopeClosed, got \(error)")
             }
         }
     }
@@ -209,7 +209,7 @@ final class ErgonomicsTests: XCTestCase {
         let scopeBox = ScopeBox()
         let disposals = LockedCounter()
         let application = try SkeinApplication {
-            modules(module {
+            module {
                 single(
                     String.self,
                     onClose: { _ in
@@ -228,7 +228,7 @@ final class ErgonomicsTests: XCTestCase {
                     },
                     provider: { _ in ErgonomicReference() }
                 )
-            })
+            }
         }
         applicationBox.application = application
         let scope = try application.createScope(UserScope.self, id: "reentrant")
@@ -243,25 +243,26 @@ final class ErgonomicsTests: XCTestCase {
 
     @MainActor func testMainActorAssistedFactoryRequiresMainActorResolution() async throws {
         let application = try SkeinApplication {
-            modules(module {
-                mainActorFactory(
+            module {
+                factory(
                     ErgonomicMainActorValue.self,
-                    arguments: String.self
-                ) { _, _ in ErgonomicMainActorValue() }
-            })
+                    arguments: String.self,
+                    provider: { _, _ in ErgonomicMainActorValue() }
+                )
+            }
         }
-        let _: ErgonomicMainActorValue = try application.mainActorGet(arguments: "value")
+        let _: ErgonomicMainActorValue = try application.get(arguments: "value")
 
         let error = await Task.detached { () -> SkeinError? in
             do {
-                let _: ErgonomicMainActorValue = try application.get(arguments: "value")
+                let _: ErgonomicMainActorValue = try application.nonisolatedGet(arguments: "value")
                 return nil
             } catch {
                 return ergonomicUnderlyingSkeinError(error)
             }
         }.value
-        guard case .mainActorBindingRequiresMainActor? = error else {
-            return XCTFail("Expected mainActorBindingRequiresMainActor")
+        guard case .bindingIsolationMismatch? = error else {
+            return XCTFail("Expected bindingIsolationMismatch")
         }
     }
 
@@ -269,8 +270,8 @@ final class ErgonomicsTests: XCTestCase {
         let gate = MainActorCloseGate()
         var disposalCount = 0
         let application = try SkeinApplication {
-            modules(module {
-                mainActorSingle(
+            module {
+                single(
                     ErgonomicMainActorValue.self,
                     onClose: { _ in
                         disposalCount += 1
@@ -278,9 +279,9 @@ final class ErgonomicsTests: XCTestCase {
                     },
                     provider: { _ in ErgonomicMainActorValue() }
                 )
-            })
+            }
         }
-        let _: ErgonomicMainActorValue = try application.mainActorGet()
+        let _: ErgonomicMainActorValue = try application.get()
 
         let firstClose = Task { @MainActor in await application.close() }
         while !gate.entered {

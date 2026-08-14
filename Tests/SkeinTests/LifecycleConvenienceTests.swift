@@ -6,45 +6,45 @@ import XCTest
 private struct ConvenienceScope: SkeinScope {}
 private struct OtherConvenienceScope: SkeinScope {}
 
-private func countedModules(_ counter: LockedCounter, value: Int) -> [Module] {
+@MainActor private func countedModules(_ counter: LockedCounter, value: Int) -> [Module] {
     counter.increment()
-    return modules(module { single(Int.self) { _ in value } })
+    return [module { single(Int.self) { _ in value } }]
 }
 
-private func countedInvalidModules(_ counter: LockedCounter) -> [Module] {
+@MainActor private func countedInvalidModules(_ counter: LockedCounter) -> [Module] {
     counter.increment()
-    return modules(module {
+    return [module {
         single(String.self) { _ in "invalid-first" }
         factory(String.self) { _ in "invalid-second" }
-    })
+    }]
 }
 
-final class LifecycleConvenienceTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        stopSkein()
+@MainActor final class LifecycleConvenienceTests: XCTestCase {
+    override func setUp() async throws {
+        try await super.setUp()
+        await MainActor.run { stopSkein() }
     }
 
-    override func tearDown() {
-        stopSkein()
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run { stopSkein() }
+        try await super.tearDown()
     }
 
     func testModuleOverlayWinsOnlyExactTypedRegistrationIdentity() throws {
         let base = module {
             single(String.self) { _ in "base-root" }
-            factory(String.self, arguments: Int.self) { _, value in "base-int:\(value)" }
-            factory(String.self, arguments: Bool.self) { _, value in "base-bool:\(value)" }
+            factory(String.self, arguments: Int.self, provider: { _, value in "base-int:\(value)" })
+            factory(String.self, arguments: Bool.self, provider: { _, value in "base-bool:\(value)" })
             scoped(ConvenienceScope.self, String.self) { _ in "base-scope" }
             scoped(OtherConvenienceScope.self, String.self) { _ in "other-scope" }
         }
         let overlay = module {
             factory(String.self) { _ in "overlay-root" }
-            factory(String.self, arguments: Int.self) { _, value in "overlay-int:\(value)" }
+            factory(String.self, arguments: Int.self, provider: { _, value in "overlay-int:\(value)" })
             scoped(ConvenienceScope.self, String.self) { _ in "overlay-scope" }
         }
 
-        let application = try SkeinApplication { modules(base.overriding(overlay)) }
+        let application = try SkeinApplication { base.overriding(overlay) }
         XCTAssertEqual(try application.get(String.self), "overlay-root")
         XCTAssertEqual(try application.get(String.self, arguments: 2), "overlay-int:2")
         XCTAssertEqual(try application.get(String.self, arguments: true), "base-bool:true")
@@ -55,9 +55,9 @@ final class LifecycleConvenienceTests: XCTestCase {
         XCTAssertEqual(try otherScope.get(String.self), "other-scope")
 
         // The source modules are reusable and unchanged.
-        let baseApplication = try SkeinApplication { modules(base) }
+        let baseApplication = try SkeinApplication { base }
         XCTAssertEqual(try baseApplication.get(String.self), "base-root")
-        let overlayApplication = try SkeinApplication { modules(overlay) }
+        let overlayApplication = try SkeinApplication { overlay }
         XCTAssertEqual(try overlayApplication.get(String.self), "overlay-root")
     }
 
@@ -70,7 +70,7 @@ final class LifecycleConvenienceTests: XCTestCase {
             single(String.self) { _ in "overlay" }
         }
         XCTAssertThrowsError(
-            try SkeinApplication { modules(duplicateBase.overriding(overlay)) }
+            try SkeinApplication { duplicateBase.overriding(overlay) }
         ) { error in
             guard case .duplicateBinding = (error as? SkeinConfigurationError)?.underlying else {
                 return XCTFail("Expected duplicateBinding, got \(error)")
@@ -83,7 +83,7 @@ final class LifecycleConvenienceTests: XCTestCase {
             factory(String.self) { _ in "second" }
         }
         XCTAssertThrowsError(
-            try SkeinApplication { modules(base.overriding(duplicateOverlay)) }
+            try SkeinApplication { base.overriding(duplicateOverlay) }
         ) { error in
             guard case .duplicateBinding = (error as? SkeinConfigurationError)?.underlying else {
                 return XCTFail("Expected duplicateBinding, got \(error)")
@@ -91,21 +91,23 @@ final class LifecycleConvenienceTests: XCTestCase {
         }
     }
 
-    func testStartSkeinIfNeededPublishesExactlyOneConcurrentCandidate() throws {
+    func testStartSkeinIfNeededPublishesExactlyOneConcurrentCandidate() async throws {
         let configurations = LockedCounter()
         let starts = LockedCounter()
         let failures = LockedCounter()
 
-        DispatchQueue.concurrentPerform(iterations: 64) { index in
-            do {
-                let started = try startSkeinIfNeeded {
-                    countedModules(configurations, value: index)
+        await withTaskGroup(of: Void.self) { group in
+            for index in 0 ..< 64 {
+                group.addTask {
+                    do {
+                        let started = try await startSkeinIfNeeded {
+                            countedModules(configurations, value: index)
+                        }
+                        if started { starts.increment() }
+                    } catch {
+                        failures.increment()
+                    }
                 }
-                if started {
-                    starts.increment()
-                }
-            } catch {
-                failures.increment()
             }
         }
 
@@ -117,7 +119,7 @@ final class LifecycleConvenienceTests: XCTestCase {
 
     func testStartSkeinIfNeededRetainsExistingApplicationWithoutBuildingCandidate() throws {
         XCTAssertTrue(try startSkeinIfNeeded {
-            modules(module { single(String.self) { _ in "installed" } })
+            module { single(String.self) { _ in "installed" } }
         })
 
         let configurations = LockedCounter()
@@ -133,10 +135,10 @@ final class LifecycleConvenienceTests: XCTestCase {
     func testStartSkeinIfNeededThrowsInvalidConstructionWhenStopped() {
         XCTAssertThrowsError(
             try startSkeinIfNeeded {
-                modules(module {
+                module {
                     single(String.self) { _ in "first" }
                     factory(String.self) { _ in "second" }
-                })
+                }
             }
         ) { error in
             guard case .duplicateBinding = (error as? SkeinConfigurationError)?.underlying else {
@@ -149,14 +151,14 @@ final class LifecycleConvenienceTests: XCTestCase {
     func testGlobalAssistedResolutionAndStopWithClose() async throws {
         let disposals = LockedCounter()
         try startSkein {
-            modules(module {
-                factory(String.self, arguments: Int.self) { _, value in "value:\(value)" }
+            module {
+                factory(String.self, arguments: Int.self, provider: { _, value in "value:\(value)" })
                 single(
                     Int.self,
                     onClose: { _ in disposals.increment() },
                     provider: { _ in 42 }
                 )
-            })
+            }
         }
 
         XCTAssertEqual(try get(String.self, arguments: 7), "value:7")

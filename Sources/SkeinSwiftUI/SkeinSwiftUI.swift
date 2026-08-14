@@ -1,4 +1,5 @@
 #if canImport(SwiftUI)
+import Combine
 import Skein
 import SwiftUI
 
@@ -48,35 +49,75 @@ import SwiftUI
     @StateObject private var storage: Storage<Model>
 
     private let configuration: Configuration
+    private let usesApplication: Bool
     private let resolve: (SkeinApplication) throws -> Model
 
     /// Resolves an ordinary Skein binding.
-    public init(qualifier: (any SkeinQualifier)? = nil) {
+    private init(resolving qualifier: (any SkeinQualifier)?) {
         configuration = Configuration(
+            source: .resolution,
             qualifier: qualifier.map(QualifierSnapshot.init),
             argumentsDescription: nil,
             argumentsType: nil
         )
+        usesApplication = true
         resolve = { application in
-            try application.mainActorGet(Model.self, qualifier: qualifier)
+            try application.get(Model.self, qualifier: qualifier)
         }
         _storage = StateObject(wrappedValue: Storage())
     }
 
     /// Resolves a typed assisted-factory binding.
-    public init<Arguments>(
-        arguments: Arguments,
+    private init<Arguments>(
+        resolving arguments: Arguments,
         qualifier: (any SkeinQualifier)? = nil
     ) {
         configuration = Configuration(
+            source: .resolution,
             qualifier: qualifier.map(QualifierSnapshot.init),
             argumentsDescription: String(reflecting: arguments),
             argumentsType: ObjectIdentifier(Arguments.self)
         )
+        usesApplication = true
         resolve = { application in
-            try application.mainActorGet(Model.self, arguments: arguments, qualifier: qualifier)
+            try application.get(Model.self, arguments: arguments, qualifier: qualifier)
         }
         _storage = StateObject(wrappedValue: Storage())
+    }
+
+    private init(instance model: Model) {
+        let configuration = Configuration(
+            source: .instance(ObjectIdentifier(model)),
+            qualifier: nil,
+            argumentsDescription: nil,
+            argumentsType: nil
+        )
+        self.configuration = configuration
+        usesApplication = false
+        resolve = { _ in model }
+        _storage = StateObject(
+            wrappedValue: Storage(result: .success(model), configuration: configuration)
+        )
+    }
+
+    /// Resolves an ordinary binding from the surrounding Skein application.
+    public static func resolving(
+        qualifier: (any SkeinQualifier)? = nil
+    ) -> Self {
+        Self(resolving: qualifier)
+    }
+
+    /// Resolves an assisted binding from the surrounding Skein application.
+    public static func resolving<Arguments>(
+        arguments: Arguments,
+        qualifier: (any SkeinQualifier)? = nil
+    ) -> Self {
+        Self(resolving: arguments, qualifier: qualifier)
+    }
+
+    /// Retains an explicitly supplied model without consulting the environment.
+    public static func instance(_ model: Model) -> Self {
+        Self(instance: model)
     }
 
     public var wrappedValue: Model? {
@@ -90,7 +131,7 @@ import SwiftUI
 
     public mutating func update() {
         storage.resolveIfNeeded(
-            application: application,
+            application: usesApplication ? application : nil,
             configuration: configuration,
             resolve: resolve
         )
@@ -107,10 +148,23 @@ import SwiftUI
 }
 
 @MainActor
-@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private final class Storage<Model: ObservableObject>: ObservableObject {
+@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private final class Storage<Model: ObservableObject>: @preconcurrency ObservableObject {
+    let objectWillChange = ObservableObjectPublisher()
     private(set) var result: Result<Model, Error>?
     private var initialApplication: ObjectIdentifier?
     private var initialConfiguration: Configuration?
+    private var modelObservation: AnyCancellable?
+
+    init(
+        result: Result<Model, Error>? = nil,
+        configuration: Configuration? = nil
+    ) {
+        self.result = result
+        initialConfiguration = configuration
+        if case let .success(model)? = result {
+            observe(model)
+        }
+    }
 
     func resolveIfNeeded(
         application: SkeinApplication?,
@@ -128,7 +182,19 @@ import SwiftUI
             result = .failure(SkeinSwiftUIError.missingApplication)
             return
         }
-        result = Result { try resolve(application) }
+        let result = Result { try resolve(application) }
+        self.result = result
+        if case let .success(model) = result {
+            observe(model)
+        }
+    }
+
+    private func observe(_ model: Model) {
+        modelObservation = model.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.objectWillChange.send()
+            }
+        }
     }
 
     private func diagnoseChangedInputs(application: SkeinApplication?, configuration: Configuration) {
@@ -142,10 +208,16 @@ import SwiftUI
 }
 
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct Configuration: Equatable {
+    let source: Source
     let qualifier: QualifierSnapshot?
     let argumentsDescription: String?
     let argumentsType: ObjectIdentifier?
 
+}
+
+@available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private enum Source: Equatable {
+    case resolution
+    case instance(ObjectIdentifier)
 }
 
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct QualifierSnapshot: Equatable {

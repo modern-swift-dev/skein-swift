@@ -31,10 +31,8 @@ final class GreetingService {
 }
 
 let appModule = module {
-    single((any Clock).self) { _ in SystemClock() }
-    factory(GreetingService.self) { resolver in
-        GreetingService(clock: try resolver.get())
-    }
+    single((any Clock).self, provider: { _ in SystemClock() })
+    factory(GreetingService.self, using: GreetingService.init)
 }
 ```
 
@@ -42,7 +40,7 @@ Start the global container before resolving services. Use the contextual type wi
 
 ```swift
 try startSkein {
-    modules(appModule)
+    appModule
 }
 
 let greetingService: GreetingService = try get()
@@ -52,4 +50,4 @@ let clock = try get((any Clock).self)
 stopSkein()
 ```
 
-`get`, `startSkein`, and binding providers can throw. See [lifecycle and errors](lifecycle-and-errors.md) for the errors to handle.
+The unprefixed registration and resolution APIs are MainActor-isolated. `get`, `startSkein`, and binding providers can throw. See [lifecycle and errors](lifecycle-and-errors.md) for the errors to handle.

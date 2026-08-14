@@ -36,25 +36,21 @@ final class RequestPresenter {
 
 let applicationModule = module {
     // Created lazily on the first resolution, then reused.
-    single(Logger.self) { _ in Logger() }
+    single(Logger.self, using: Logger.init)
 
     // Created again for each resolution.
-    factory(RequestHandler.self) { resolver in
-        RequestHandler(logger: try resolver.get())
-    }
+    factory(RequestHandler.self, using: RequestHandler.init)
 
     // Assisted factories accept one strongly typed runtime value.
-    factory(RequestPresenter.self, arguments: RequestPath.self) { _, path in
-        RequestPresenter(path: path)
-    }
+    factory(RequestPresenter.self, arguments: RequestPath.self, using: RequestPresenter.init)
 
     // Scoped values are shared only by one typed scope instance.
-    scoped(RequestCache.self, scope: RequestScope.self) { _ in RequestCache() }
+    scoped(RequestCache.self, scope: RequestScope.self, provider: { _ in RequestCache() })
 }
 
 do {
     let application = try SkeinApplication {
-        modules(applicationModule)
+        applicationModule
     }
 
     let firstLogger: Logger = try application.get()

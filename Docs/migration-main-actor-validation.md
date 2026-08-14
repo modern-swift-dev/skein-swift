@@ -1,53 +1,46 @@
-# Graph validation and migration
+# MainActor-first and validation migration
 
 [Documentation index](README.md)
 
-Skein now owns the framework-level work that application wrappers commonly provided: main-actor binding isolation, an inspectable lifecycle snapshot, and explicit dependency probes during startup. Applications still own their composition policy, logging, and whether an error should terminate startup.
-
-## Replace main-actor wrappers
-
-Before, an application wrapper commonly erased isolation to make a UI service fit an ordinary provider:
-
-```swift
-// Remove this application-specific bridge.
-// final class UnsafePresenterBox: @unchecked Sendable { ... }
-// MainActor.assumeIsolated { presenter }
-```
-
-Register and resolve the service directly instead:
+Skein's canonical API is now MainActor-isolated. Rename former MainActor-prefixed calls to their unprefixed forms:
 
 ```swift
 let uiModule = module {
-    mainActorSingle(AppPresenter.self) { _ in AppPresenter() }
+    single(AppPresenter.self, using: AppPresenter.init)
 }
 
 @MainActor func showUI() throws {
-    let presenter: AppPresenter = try mainActorGet()
+    let presenter: AppPresenter = try get()
     _ = presenter
 }
 ```
 
-This makes actor isolation visible to the compiler and preserves support for non-`Sendable` service types.
+Former unprefixed concurrent bindings become `nonisolatedSingle`, `nonisolatedFactory`, or `nonisolatedScoped`, and resolve through `nonisolatedGet`. These APIs require Sendable values and closures. App-defined global actors use `actor...(..., isolatedTo:)` and async `actorGet`.
 
-## Replace lifecycle flags and startup probes
+## Replace validation manifests with binding roots
 
-Replace a wrapper-maintained `didStart` flag with `isSkeinStarted` when a read-only snapshot is enough. When the desired policy is "install only if absent", use `startSkeinIfNeeded`, which atomically publishes one default application and returns whether this caller installed it.
-
-Replace custom eager-resolution loops with an explicit `DependencyProbe` manifest:
+Declare each startup root once on its registration. `.structural` inspects known constructor edges without running the provider; `.eager` adds sequential startup resolution after all structural checks pass.
 
 ```swift
-@MainActor func startDependencies() throws {
-    guard !isSkeinStarted else { return }
+let uiModule = module {
+    factory(AppPresenter.self, using: AppPresenter.init)
+        .root(.eager)
+}
 
-    try startSkein(validating: [
-        DependencyProbe(AppPresenter.self),
-        DependencyProbe((any AccountRepository).self, qualifier: Environment.production)
-    ]) {
-        modules(coreModule, uiModule)
+@MainActor func startDependencies() async throws {
+    _ = try await startSkeinIfNeeded(validation: .declaredRoots) {
+        coreModule
+        uiModule
     }
 }
 ```
 
-The manifest is intentionally selective. Skein does not instantiate every registered binding because providers may create connections, start work, or otherwise have side effects. Validation stops at the first error; successful singleton probes remain cached, factories run again when subsequently resolved, and side effects are not rolled back after failure.
+The startup report retains opaque closure bindings as diagnostics. Eager singletons remain cached; eager factories run again on later lookup. Earlier provider side effects are not rolled back after a later failure.
 
-Wrap the call above in your application's logging and fail-fast policy if needed. Skein reports errors but does not log, terminate the process, or choose a recovery strategy.
+## Other breaking renames
+
+- List modules directly in application builders; arrays, optionals, branches, and loops compose naturally.
+- Use `instance(value)` for supplied configuration values.
+- Use `using:` for constructor injection at any arity and for assisted constructors whose runtime argument is first.
+- Spell closure-based assisted registrations with `provider:` to distinguish them from constructor packs.
+- Use `SkeinStateObject.resolving(...)` or `.instance(model)` in SwiftUI.

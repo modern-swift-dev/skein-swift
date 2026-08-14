@@ -10,17 +10,17 @@ struct ServiceEndpoint {
 }
 
 let endpointModule = module {
-    single(ServiceEndpoint.self, qualifier: ServiceEnvironment.production) { _ in
+    single(ServiceEndpoint.self, qualifier: ServiceEnvironment.production, provider: { _ in
         ServiceEndpoint(baseURL: "https://api.example.com")
-    }
-    single(ServiceEndpoint.self, qualifier: ServiceEnvironment.staging) { _ in
+    })
+    single(ServiceEndpoint.self, qualifier: ServiceEnvironment.staging, provider: { _ in
         ServiceEndpoint(baseURL: "https://staging.example.com")
-    }
+    })
 }
 
 do {
     try startSkein {
-        modules(endpointModule)
+        endpointModule
     }
     defer { stopSkein() }
 
