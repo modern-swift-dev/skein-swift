@@ -118,6 +118,7 @@ final class MainActorFirstRegistrationTests: XCTestCase {
         XCTAssertEqual(result.value, 15)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor func testCustomActorProviderRecordsAndRunsOnDeclaredActor() async throws {
         let application = try SkeinApplication {
             module {
@@ -138,6 +139,7 @@ final class MainActorFirstRegistrationTests: XCTestCase {
         XCTAssertEqual(constructed.value, 1)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor func testCustomActorMismatchIsRejectedAtConstruction() async {
         XCTAssertThrowsError(try SkeinApplication {
             module {

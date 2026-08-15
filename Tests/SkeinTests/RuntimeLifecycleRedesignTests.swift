@@ -128,6 +128,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         }
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testActorGetResolvesEveryIsolationKindAndCoalescesCustomSingle() async throws {
         let initialCreations = await RuntimeActorValue.creations
@@ -167,6 +168,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(finalCreations, initialCreations + 1)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testTaskLocalCycleDetectionCrossesCustomActorTasks() async throws {
         let application = try SkeinApplication {
@@ -201,6 +203,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         }
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testIndependentlyStartedCustomRootCyclesFailInsteadOfDeadlocking() async throws {
         let gateA = RuntimeGate()
@@ -257,6 +260,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         })
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testIndependentlyStartedCustomScopedCyclesFailInsteadOfDeadlocking() async throws {
         let gateA = RuntimeGate()
@@ -336,6 +340,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(eagerCreations, 1)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testFailedValidatedGlobalStartupCanBeRetried() async throws {
         stopSkein()
@@ -364,6 +369,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertNotNil(currentSkeinValidationReport)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testCustomActorScopedBindingCachesAndRejectsAfterClose() async throws {
         let application = try SkeinApplication {
@@ -392,6 +398,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         }
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testCustomActorSingletonRetriesAfterProviderFailure() async throws {
         let state = RuntimeRetryState()
@@ -417,6 +424,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(attempts, 2)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testCancellingOneWaiterDoesNotCancelSharedSingletonCreation() async throws {
         let gate = RuntimeGate()
@@ -449,6 +457,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(creations.value, 1)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testCloseDuringRootCreationDisposesOnceAndRejectsWaiters() async throws {
         let gate = RuntimeGate()
@@ -489,6 +498,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(values, ["root"])
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testCloseDuringScopeCreationDisposesOnceAndRejectsWaiters() async throws {
         let gate = RuntimeGate()
@@ -536,6 +546,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(values, ["scope"])
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testDisposalUsesReverseProviderCompletionOrder() async throws {
         let gateA = RuntimeGate()
@@ -618,6 +629,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(eagerCreations, 0)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testEagerRootsRunInDeclarationOrderAcrossIsolationKinds() async throws {
         let order = RuntimeLockedLog()
@@ -644,6 +656,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(order.values, ["main", "actor", "nonisolated"])
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testConcurrentValidatedStartIfNeededBuildsOnceAndHasOneOwner() async throws {
         stopSkein()
@@ -673,6 +686,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertTrue(isSkeinStarted)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testStopDuringValidatedStartupPreventsPublication() async throws {
         stopSkein()
@@ -708,6 +722,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertNil(currentSkeinValidationReport)
     }
 
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
     @MainActor
     func testCustomDisposerIsolationMismatchIsRejected() async throws {
         XCTAssertThrowsError(
@@ -777,6 +792,7 @@ private func waitUntilScopeIsClosed(
     return false
 }
 
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 @MainActor
 private func countedStartupModule(
     builders: RuntimeLockedCount,
