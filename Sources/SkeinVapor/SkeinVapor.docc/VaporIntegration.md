@@ -1,6 +1,6 @@
 # Vapor integration
 
-[Documentation index](README.md)
+[Documentation index](<doc:SkeinVapor>)
 
 The `SkeinVapor` product integrates Skein with Vapor 4.122 on macOS and Linux. It owns one `SkeinApplication` for each Vapor `Application`, installs request-scope middleware, makes the current `Request` injectable, and closes resolved resources during Vapor shutdown.
 

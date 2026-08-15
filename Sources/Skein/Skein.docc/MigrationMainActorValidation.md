@@ -1,6 +1,6 @@
 # MainActor-first and validation migration
 
-[Documentation index](README.md)
+[Documentation index](<doc:Skein>)
 
 Skein's canonical API is now MainActor-isolated. Rename former MainActor-prefixed calls to their unprefixed forms:
 

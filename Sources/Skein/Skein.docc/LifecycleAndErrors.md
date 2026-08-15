@@ -1,6 +1,6 @@
 # Lifecycle, validation, and errors
 
-[Documentation index](README.md)
+[Documentation index](<doc:Skein>)
 
 The global API owns one optional default application. List modules directly in its builder:
 

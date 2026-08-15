@@ -1,8 +1,8 @@
 # Bindings and lifetimes
 
-[Documentation index](README.md)
+[Documentation index](<doc:Skein>)
 
-Root registrations are either a `single` or a `factory`. A `scoped` registration is cached once per active typed scope; see [applications, assisted factories, scopes, and disposal](ergonomics.md).
+Root registrations are either a `single` or a `factory`. A `scoped` registration is cached once per active typed scope; see <doc:ApplicationsAssistedFactoriesScopesAndDisposal>.
 
 | Binding | Provider runs | Result |
 | --- | --- | --- |

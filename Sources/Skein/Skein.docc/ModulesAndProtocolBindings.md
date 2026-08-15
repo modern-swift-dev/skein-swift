@@ -1,6 +1,6 @@
 # Modules and protocol bindings
 
-[Documentation index](README.md)
+[Documentation index](<doc:Skein>)
 
 Modules keep registrations close to the feature that owns them. Application builders accept individual modules, arrays, optionals, conditions, and loops directly.
 
@@ -44,7 +44,7 @@ let client = try get((any HTTPClient).self)
 let repository: ArticleRepository = try get()
 ```
 
-All modules are collected during application creation. Registering the same type and qualifier twice, whether in one module or separate modules, fails creation with a source-aware `SkeinConfigurationError` whose `underlying` is `SkeinError.duplicateBinding`. Use [qualifiers](qualifiers.md) when multiple implementations of one type are intentional.
+All modules are collected during application creation. Registering the same type and qualifier twice, whether in one module or separate modules, fails creation with a source-aware `SkeinConfigurationError` whose `underlying` is `SkeinError.duplicateBinding`. Use <doc:Qualifiers> when multiple implementations of one type are intentional.
 
 ## Test or environment overlays
 

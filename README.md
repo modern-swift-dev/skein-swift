@@ -47,18 +47,19 @@ All setup and resolution operations that can fail use Swift error handling, so c
 
 ## Documentation
 
-Start with the [documentation index](Docs/README.md), or jump directly to a focused guide:
+DocC source lives with the module it documents:
 
-- [Getting started](Docs/getting-started.md)
-- [Bindings and lifetimes](Docs/bindings-and-lifetimes.md)
-- [Modules and protocol bindings](Docs/modules-and-protocol-bindings.md)
-- [Qualifiers](Docs/qualifiers.md)
-- [Applications, assisted factories, scopes, and disposal](Docs/ergonomics.md)
-- [Lifecycle, validation, and errors](Docs/lifecycle-and-errors.md)
-- [Graph validation and migration](Docs/migration-main-actor-validation.md)
-- [Testing with manual doubles](Docs/testing.md)
-- [Concurrency and main-actor bindings](Docs/concurrency-and-limitations.md)
-- [Vapor integration](Docs/vapor.md)
+- [Skein](Sources/Skein/Skein.docc/Skein.md)
+- [SkeinSwiftUI](Sources/SkeinSwiftUI/SkeinSwiftUI.docc/SkeinSwiftUI.md)
+- [SkeinVapor](Sources/SkeinVapor/SkeinVapor.docc/SkeinVapor.md)
+
+Each stable GitHub release includes `Skein-Documentation.zip`, containing the three matching `.doccarchive` bundles. Download and unzip it, then open each bundle in Xcode to add it to the Documentation browser.
+
+Build the same archive locally with:
+
+```sh
+make documentation
+```
 
 ## Runnable examples
 

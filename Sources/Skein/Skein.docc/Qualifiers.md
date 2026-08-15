@@ -1,6 +1,6 @@
 # Qualifiers
 
-[Documentation index](README.md)
+[Documentation index](<doc:Skein>)
 
 Use a qualifier when one service type has more than one intentional binding. A qualifier must conform to `SkeinQualifier`, which requires `Hashable` and `Sendable`. An enum is a concise, type-safe choice.
 

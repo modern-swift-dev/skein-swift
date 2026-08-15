@@ -1,6 +1,6 @@
 # Testing with manual doubles
 
-[Documentation index](README.md)
+[Documentation index](<doc:Skein>)
 
 Use modules as a small composition root for each test. Prefer a fresh `SkeinApplication` for every test: its registrations, singleton cache, scopes, and resolution state are isolated, so tests can run independently without touching global state.
 

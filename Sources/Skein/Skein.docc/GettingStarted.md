@@ -1,6 +1,6 @@
 # Getting started
 
-[Documentation index](README.md)
+[Documentation index](<doc:Skein>)
 
 Add the package to your Xcode project or Swift Package Manager manifest, then depend on its `Skein` product:
 
@@ -50,4 +50,4 @@ let clock = try get((any Clock).self)
 stopSkein()
 ```
 
-The unprefixed registration and resolution APIs are MainActor-isolated. `get`, `startSkein`, and binding providers can throw. See [lifecycle and errors](lifecycle-and-errors.md) for the errors to handle.
+The unprefixed registration and resolution APIs are MainActor-isolated. `get`, `startSkein`, and binding providers can throw. See <doc:LifecycleAndErrors> for the errors to handle.

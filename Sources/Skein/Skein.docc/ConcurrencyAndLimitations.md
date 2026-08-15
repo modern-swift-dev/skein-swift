@@ -1,6 +1,6 @@
 # Concurrency and isolation
 
-[Documentation index](README.md)
+[Documentation index](<doc:Skein>)
 
 Skein is MainActor-first. The unprefixed `module`, `single`, `factory`, `scoped`, `instance`, and `get` APIs are MainActor-isolated, which makes UI-oriented, non-`Sendable` graphs concise and compiler checked.
 

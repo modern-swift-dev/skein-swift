@@ -6,7 +6,7 @@ TVOS_DESTINATION ?= platform=tvOS Simulator,name=Apple TV 4K (3rd generation),OS
 WATCHOS_DESTINATION ?= platform=watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=latest
 VISIONOS_DESTINATION ?= platform=visionOS Simulator,name=Apple Vision Pro,OS=latest
 
-.PHONY: setup lint format test test-swift test-examples test-linux test-macos \
+.PHONY: setup lint format documentation test test-swift test-examples test-linux test-macos \
 	test-ios test-tvos test-watchos test-visionos test-apple test-all
 
 setup:
@@ -26,6 +26,10 @@ format:
 
 	mint run --no-install nicklockwood/SwiftFormat . --config .swiftformat --quiet
 	mint run --no-install realm/SwiftLint  --config .swiftlint.yml --fix --quiet
+
+documentation:
+
+	bash Scripts/build-documentation.sh
 
 test-linux:
 	docker run \
