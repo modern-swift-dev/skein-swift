@@ -20,17 +20,17 @@ private struct OtherConvenienceScope: SkeinScope {}
 }
 
 @MainActor final class LifecycleConvenienceTests: XCTestCase {
-    override func setUp() async throws {
+    nonisolated override func setUp() async throws {
         try await super.setUp()
         await MainActor.run { stopSkein() }
     }
 
-    override func tearDown() async throws {
+    nonisolated override func tearDown() async throws {
         await MainActor.run { stopSkein() }
         try await super.tearDown()
     }
 
-    func testModuleOverlayWinsOnlyExactTypedRegistrationIdentity() throws {
+    func testModuleOverlayWinsOnlyExactTypedRegistrationIdentity() async throws {
         let base = module {
             single(String.self) { _ in "base-root" }
             factory(String.self, arguments: Int.self, provider: { _, value in "base-int:\(value)" })
@@ -61,7 +61,7 @@ private struct OtherConvenienceScope: SkeinScope {}
         XCTAssertEqual(try overlayApplication.get(String.self), "overlay-root")
     }
 
-    func testModuleOverlayPreservesDuplicateErrorsWithinEachInput() throws {
+    func testModuleOverlayPreservesDuplicateErrorsWithinEachInput() async throws {
         let duplicateBase = module {
             single(String.self) { _ in "first" }
             factory(String.self) { _ in "second" }
@@ -117,7 +117,7 @@ private struct OtherConvenienceScope: SkeinScope {}
         let _: Int = try get()
     }
 
-    func testStartSkeinIfNeededRetainsExistingApplicationWithoutBuildingCandidate() throws {
+    func testStartSkeinIfNeededRetainsExistingApplicationWithoutBuildingCandidate() async throws {
         XCTAssertTrue(try startSkeinIfNeeded {
             module { single(String.self) { _ in "installed" } }
         })
@@ -132,7 +132,7 @@ private struct OtherConvenienceScope: SkeinScope {}
         XCTAssertEqual(try get(String.self), "installed")
     }
 
-    func testStartSkeinIfNeededThrowsInvalidConstructionWhenStopped() {
+    func testStartSkeinIfNeededThrowsInvalidConstructionWhenStopped() async {
         XCTAssertThrowsError(
             try startSkeinIfNeeded {
                 module {

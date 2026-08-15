@@ -58,7 +58,7 @@ private final class ScopeBox: @unchecked Sendable {
 }
 
 @MainActor final class ErgonomicsTests: XCTestCase {
-    func testApplicationsOwnIndependentSingletonCaches() throws {
+    func testApplicationsOwnIndependentSingletonCaches() async throws {
         let definitions = module {
             single(ErgonomicReference.self) { _ in ErgonomicReference() }
         }
@@ -73,7 +73,7 @@ private final class ScopeBox: @unchecked Sendable {
         XCTAssertFalse(firstValue === secondValue)
     }
 
-    func testNestedResolutionAcrossApplicationsDoesNotCreateFalseCycle() throws {
+    func testNestedResolutionAcrossApplicationsDoesNotCreateFalseCycle() async throws {
         let second = try SkeinApplication {
             module { factory(String.self) { _ in "second" } }
         }
@@ -86,7 +86,7 @@ private final class ScopeBox: @unchecked Sendable {
         XCTAssertEqual(try first.get(String.self), "first:second")
     }
 
-    func testAssistedFactoriesCoexistByArgumentType() throws {
+    func testAssistedFactoriesCoexistByArgumentType() async throws {
         let application = try SkeinApplication {
             module {
                 factory(String.self, arguments: Int.self, provider: { _, value in "int:\(value)" })
@@ -100,7 +100,7 @@ private final class ScopeBox: @unchecked Sendable {
         XCTAssertEqual(try application.get(String.self, arguments: true), "bool:true")
     }
 
-    func testScopeShadowsRootCachesPerScopeAndSharesRootSingletons() throws {
+    func testScopeShadowsRootCachesPerScopeAndSharesRootSingletons() async throws {
         let application = try SkeinApplication {
             module {
                 single(String.self) { _ in "root" }
@@ -121,7 +121,7 @@ private final class ScopeBox: @unchecked Sendable {
         XCTAssertTrue(firstRoot === secondRoot)
     }
 
-    func testScopedInstanceIsCreatedOnceUnderConcurrentResolution() throws {
+    func testScopedInstanceIsCreatedOnceUnderConcurrentResolution() async throws {
         let constructions = LockedCounter()
         let failures = LockedCounter()
         let application = try SkeinApplication {
@@ -241,7 +241,7 @@ private final class ScopeBox: @unchecked Sendable {
         XCTAssertEqual(disposals.value, 2)
     }
 
-    @MainActor func testMainActorAssistedFactoryRequiresMainActorResolution() async throws {
+    func testMainActorAssistedFactoryRequiresMainActorResolution() async throws {
         let application = try SkeinApplication {
             module {
                 factory(
@@ -266,7 +266,7 @@ private final class ScopeBox: @unchecked Sendable {
         }
     }
 
-    @MainActor func testSimultaneousMainActorClosesSuspendAndDisposeExactlyOnce() async throws {
+    func testSimultaneousMainActorClosesSuspendAndDisposeExactlyOnce() async throws {
         let gate = MainActorCloseGate()
         var disposalCount = 0
         let application = try SkeinApplication {

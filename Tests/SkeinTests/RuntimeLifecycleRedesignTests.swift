@@ -1,4 +1,4 @@
-import XCTest
+@preconcurrency import XCTest
 @testable import Skein
 
 @globalActor
@@ -107,7 +107,7 @@ private enum RuntimeIndependentCycleScope: SkeinScope {}
 
 final class RuntimeLifecycleRedesignTests: XCTestCase {
     @MainActor
-    func testMainActorGetAcceptsMainActorAndNonisolatedBindings() throws {
+    func testMainActorGetAcceptsMainActorAndNonisolatedBindings() async throws {
         let application = try SkeinApplication {
             module {
                 instance("main")
@@ -709,7 +709,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @MainActor
-    func testCustomDisposerIsolationMismatchIsRejected() throws {
+    func testCustomDisposerIsolationMismatchIsRejected() async throws {
         XCTAssertThrowsError(
             try SkeinApplication {
                 module {

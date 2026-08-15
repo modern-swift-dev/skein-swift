@@ -27,7 +27,7 @@ private func makeActorConstructed(_ dependency: PackD1) -> ActorConstructed {
 }
 
 final class MainActorFirstRegistrationTests: XCTestCase {
-    @MainActor func testBuildersComposeBindingsAndModulesInDeclarationOrder() throws {
+    @MainActor func testBuildersComposeBindingsAndModulesInDeclarationOrder() async throws {
         let includeOptional = true
         let optional: [Binding]? = [instance(PackD2())]
         let bindings = ModuleBuilder.buildBlock(
@@ -51,7 +51,7 @@ final class MainActorFirstRegistrationTests: XCTestCase {
         XCTAssertEqual(modules.count, 2)
     }
 
-    @MainActor func testInstancePreservesReferenceIdentityAndProtocolExposure() throws {
+    @MainActor func testInstancePreservesReferenceIdentityAndProtocolExposure() async throws {
         let reference = RegistrationReference()
         let application = try SkeinApplication {
             module { instance((any RegistrationService).self, value: reference) }
@@ -60,7 +60,7 @@ final class MainActorFirstRegistrationTests: XCTestCase {
         XCTAssertTrue(resolved === reference)
     }
 
-    @MainActor func testMainActorParameterPackSupportsEightDependencies() throws {
+    @MainActor func testMainActorParameterPackSupportsEightDependencies() async throws {
         let application = try SkeinApplication {
             module {
                 instance(PackD1()); instance(PackD2()); instance(PackD3()); instance(PackD4())
@@ -78,7 +78,7 @@ final class MainActorFirstRegistrationTests: XCTestCase {
         XCTAssertEqual(result.value, 36)
     }
 
-    @MainActor func testAssistedConstructorKeepsArgumentOutOfDependencyEdges() throws {
+    @MainActor func testAssistedConstructorKeepsArgumentOutOfDependencyEdges() async throws {
         let root = factory(
             AssistedResult.self,
             arguments: String.self,
@@ -138,7 +138,7 @@ final class MainActorFirstRegistrationTests: XCTestCase {
         XCTAssertEqual(constructed.value, 1)
     }
 
-    @MainActor func testCustomActorMismatchIsRejectedAtConstruction() {
+    @MainActor func testCustomActorMismatchIsRejectedAtConstruction() async {
         XCTAssertThrowsError(try SkeinApplication {
             module {
                 actorFactory(PackResult.self, isolatedTo: RegistrationDatabaseActor.self, provider: {

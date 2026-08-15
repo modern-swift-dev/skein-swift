@@ -59,7 +59,7 @@ private final class RegistrationCycleB { init(_: RegistrationCycleA) {} }
 private final class RegistrationSelfCycle { init() {} }
 
 @MainActor final class RegistrationValidationDiagnosticsTests: XCTestCase {
-    func testConstructorRegistrationSupportsProtocolAndAritiesZeroThroughFour() throws {
+    func testConstructorRegistrationSupportsProtocolAndAritiesZeroThroughFour() async throws {
         let application = try SkeinApplication {
             module {
                 factory((any RegistrationProtocol).self, using: RegistrationImplementation.init)
@@ -86,7 +86,7 @@ private final class RegistrationSelfCycle { init() {} }
         XCTAssertNotNil(four)
     }
 
-    @MainActor func testMainActorConstructorRegistrationCompilesAndResolvesDependencies() throws {
+    @MainActor func testMainActorConstructorRegistrationCompilesAndResolvesDependencies() async throws {
         let application = try SkeinApplication {
             module {
                 factory(RegistrationD1.self, using: RegistrationD1.init)
@@ -112,7 +112,7 @@ private final class RegistrationSelfCycle { init() {} }
         XCTAssertNotNil(four)
     }
 
-    func testValidationDoesNotExecuteProvidersAndReportsOpaqueBindings() throws {
+    func testValidationDoesNotExecuteProvidersAndReportsOpaqueBindings() async throws {
         var executions = 0
         let definition = module {
             single(RegistrationD1.self) { _ in
@@ -130,7 +130,7 @@ private final class RegistrationSelfCycle { init() {} }
         XCTAssertEqual(report.opaqueBindings.first?.type, String(reflecting: RegistrationD1.self))
     }
 
-    func testValidationDetectsStandardToMainActorAndRootToScopeViolations() throws {
+    func testValidationDetectsStandardToMainActorAndRootToScopeViolations() async throws {
         let actorApplication = try SkeinApplication {
             module {
                 factory(RegistrationMainActor.self, using: { RegistrationMainActor(RegistrationD1()) })
@@ -159,7 +159,7 @@ private final class RegistrationSelfCycle { init() {} }
         }
     }
 
-    func testScopedBindingCannotBeDeclaredAsApplicationRoot() throws {
+    func testScopedBindingCannotBeDeclaredAsApplicationRoot() async throws {
         let source = SkeinSourceLocation(fileID: #fileID, line: #line)
         let parent = Binding(
             key: BindingKey(RegistrationOne.self, qualifier: nil),
@@ -183,7 +183,7 @@ private final class RegistrationSelfCycle { init() {} }
         }
     }
 
-    func testValidationDetectsMissingBindingAndKnownCycle() throws {
+    func testValidationDetectsMissingBindingAndKnownCycle() async throws {
         let missing = try SkeinApplication {
             module {
                 factory(RegistrationOne.self, using: RegistrationOne.init).root()
@@ -209,7 +209,7 @@ private final class RegistrationSelfCycle { init() {} }
         }
     }
 
-    func testDirectRuntimeSelfCycleKeepsBothTraceFrames() throws {
+    func testDirectRuntimeSelfCycleKeepsBothTraceFrames() async throws {
         let application = try SkeinApplication {
             module {
                 factory(RegistrationSelfCycle.self) { resolver in
@@ -229,7 +229,7 @@ private final class RegistrationSelfCycle { init() {} }
         }
     }
 
-    func testResolutionErrorRetainsProviderErrorAndRegistrationPath() throws {
+    func testResolutionErrorRetainsProviderErrorAndRegistrationPath() async throws {
         let leafLine = #line + 2
         let definition = module {
             factory(RegistrationD1.self) { _ in
@@ -253,7 +253,7 @@ private final class RegistrationSelfCycle { init() {} }
         }
     }
 
-    func testDuplicateBindingReportsBothSourceLocations() {
+    func testDuplicateBindingReportsBothSourceLocations() async {
         let firstLine = #line + 2
         let definition = module {
             factory(RegistrationD1.self) { _ in RegistrationD1() }

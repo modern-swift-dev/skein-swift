@@ -32,7 +32,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
 @MainActor final class SkeinTests: XCTestCase {
     private static let globalSkeinTestLock = NSLock()
 
-    override func setUp() async throws {
+    nonisolated override func setUp() async throws {
         try await super.setUp()
         await MainActor.run {
             Self.globalSkeinTestLock.lock()
@@ -40,7 +40,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         }
     }
 
-    override func tearDown() async throws {
+    nonisolated override func tearDown() async throws {
         await MainActor.run {
             stopSkein()
             Self.globalSkeinTestLock.unlock()
@@ -48,7 +48,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         try await super.tearDown()
     }
 
-    func testSingletonIsCreatedOnceAndFactoryCreatesEachTime() throws {
+    func testSingletonIsCreatedOnceAndFactoryCreatesEachTime() async throws {
         let definitions = module {
             single(Reference.self) { _ in Reference() }
             factory(FactoryValue.self) { resolver in
@@ -68,7 +68,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         XCTAssertTrue(firstFactory.reference === secondFactory.reference)
     }
 
-    func testSingletonIsCreatedExactlyOnceUnderConcurrentResolution() throws {
+    func testSingletonIsCreatedExactlyOnceUnderConcurrentResolution() async throws {
         let constructions = LockedCounter()
         let failures = LockedCounter()
         let definitions = module {
@@ -91,7 +91,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         XCTAssertEqual(constructions.value, 1)
     }
 
-    func testModulesResolveProtocolBindingAcrossModules() throws {
+    func testModulesResolveProtocolBindingAcrossModules() async throws {
         let networking = module {
             single((any Client).self) { _ in TestClient() }
         }
@@ -110,7 +110,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         XCTAssertEqual(service.client.value, "client")
     }
 
-    func testQualifiedBindingsAreIndependent() throws {
+    func testQualifiedBindingsAreIndependent() async throws {
         let definitions = module {
             single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
             single(String.self, qualifier: ClientKind.background) { _ in "background" }
@@ -121,7 +121,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         XCTAssertEqual(try get(String.self, qualifier: ClientKind.background), "background")
     }
 
-    func testEqualQualifierValuesFromDifferentTypesAreIndependent() throws {
+    func testEqualQualifierValuesFromDifferentTypesAreIndependent() async throws {
         let definitions = module {
             single(String.self, qualifier: PrimaryQualifier.primary) { _ in "first" }
             single(String.self, qualifier: SecondaryQualifier.primary) { _ in "second" }
@@ -132,7 +132,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         XCTAssertEqual(try get(String.self, qualifier: SecondaryQualifier.primary), "second")
     }
 
-    func testMissingBindingAndUnqualifiedLookupThrowSkeinError() throws {
+    func testMissingBindingAndUnqualifiedLookupThrowSkeinError() async throws {
         let definitions = module {
             single(String.self, qualifier: ClientKind.primary) { _ in "primary" }
         }
@@ -154,7 +154,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         }
     }
 
-    func testLifecycleAndDuplicateBindingErrors() throws {
+    func testLifecycleAndDuplicateBindingErrors() async throws {
         XCTAssertThrowsError(try get(Reference.self)) { error in
             XCTAssertEqual(error as? SkeinError, .notStarted)
         }
@@ -182,7 +182,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         }
     }
 
-    func testCircularDependencyThrowsSkeinError() throws {
+    func testCircularDependencyThrowsSkeinError() async throws {
         let definitions = module {
             factory(CycleA.self) { resolver in
                 CycleA(dependency: try resolver.get())
@@ -201,7 +201,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         }
     }
 
-    func testStoppingAndRestartingCreatesFreshSingletons() throws {
+    func testStoppingAndRestartingCreatesFreshSingletons() async throws {
         let constructions = LockedCounter()
         let definitions = module {
             single(Reference.self) { _ in
@@ -221,7 +221,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         XCTAssertEqual(constructions.value, 2)
     }
 
-    func testProviderErrorPropagatesAndSingletonCreationIsRetried() throws {
+    func testProviderErrorPropagatesAndSingletonCreationIsRetried() async throws {
         let attempts = AttemptCounter()
         let definitions = module {
             single(String.self) { _ in
@@ -244,7 +244,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         XCTAssertEqual(attempts.count, 2)
     }
 
-    func testMainActorSingletonAndFactoryRespectTheirLifetimes() throws {
+    func testMainActorSingletonAndFactoryRespectTheirLifetimes() async throws {
         let definitions = module {
             single(Reference.self) { _ in Reference() }
             single(MainActorService.self) { resolver in
@@ -355,7 +355,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         XCTAssertFalse(isSkeinStarted)
     }
 
-    func testLifecycleStateSupportsStartStopRestartAndConcurrentReads() throws {
+    func testLifecycleStateSupportsStartStopRestartAndConcurrentReads() async throws {
         XCTAssertFalse(isSkeinStarted)
         let definitions = module {
             single(Reference.self) { _ in Reference() }
