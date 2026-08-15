@@ -1,39 +1,5 @@
 import Skein
 
-final class Logger {
-    func write(_ message: String) {
-        print("[log] \(message)")
-    }
-}
-
-final class RequestHandler {
-    let logger: Logger
-
-    init(logger: Logger) {
-        self.logger = logger
-    }
-
-    func handle(_ path: String) {
-        logger.write("Handling \(path)")
-    }
-}
-
-struct RequestPath {
-    let value: String
-}
-
-struct RequestScope: SkeinScope {}
-
-final class RequestCache {}
-
-final class RequestPresenter {
-    let path: RequestPath
-
-    init(path: RequestPath) {
-        self.path = path
-    }
-}
-
 let applicationModule = module {
     // Created lazily on the first resolution, then reused.
     single(Logger.self, using: Logger.init)

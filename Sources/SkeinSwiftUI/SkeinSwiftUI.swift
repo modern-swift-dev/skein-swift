@@ -8,6 +8,7 @@ import SwiftUI
     /// No application was supplied by a surrounding `skeinApplication(_:)` modifier.
     case missingApplication
 
+    /// A localized description suitable for display and diagnostics.
     public var errorDescription: String? {
         switch self {
             case .missingApplication:
@@ -32,6 +33,9 @@ import SwiftUI
     /// Makes an application available to this view and its descendants.
     ///
     /// Nested modifiers use SwiftUI's normal nearest-value-wins behavior.
+    ///
+    /// - Parameter application: The Skein application to place in the environment.
+    /// - Returns: A view whose environment contains `application`.
     func skeinApplication(_ application: SkeinApplication) -> some View {
         environment(\.skeinApplication, application)
     }
@@ -100,35 +104,57 @@ import SwiftUI
         )
     }
 
-    /// Resolves an ordinary binding from the surrounding Skein application.
+    /// Configures this property to resolve an ordinary binding from the surrounding Skein application.
+    ///
+    /// Resolution is deferred until SwiftUI updates the property. Inspect ``projectedValue``
+    /// to observe either the resolved model or a resolution failure.
+    ///
+    /// - Parameter qualifier: An optional qualifier selecting a specific binding.
+    /// - Returns: A property-wrapper value configured for deferred resolution.
     public static func resolving(
         qualifier: (any SkeinQualifier)? = nil
     ) -> Self {
         Self(resolving: qualifier)
     }
 
-    /// Resolves an assisted binding from the surrounding Skein application.
-    public static func resolving<Arguments>(
-        arguments: Arguments,
+    /// Configures this property to resolve an assisted binding from the surrounding Skein application.
+    ///
+    /// Resolution is deferred until SwiftUI updates the property. Inspect ``projectedValue``
+    /// to observe either the resolved model or a resolution failure.
+    ///
+    /// - Parameters:
+    ///   - arguments: The assisted arguments passed to the registered provider.
+    ///   - qualifier: An optional qualifier selecting a specific binding.
+    /// - Returns: A property-wrapper value configured for deferred resolution.
+    public static func resolving(
+        arguments: some Any,
         qualifier: (any SkeinQualifier)? = nil
     ) -> Self {
         Self(resolving: arguments, qualifier: qualifier)
     }
 
     /// Retains an explicitly supplied model without consulting the environment.
+    ///
+    /// - Parameter model: The observable object to retain.
+    /// - Returns: A property-wrapper value containing `model`.
     public static func instance(_ model: Model) -> Self {
         Self(instance: model)
     }
 
+    /// The retained model, or `nil` before resolution or after a resolution failure.
     public var wrappedValue: Model? {
         storage.result?.success
     }
 
-    /// The retained resolution result, including resolution failures.
+    /// The retained resolution result, including failures, or `nil` before SwiftUI updates the property.
     public var projectedValue: Result<Model, Error>? {
         storage.result
     }
 
+    /// Performs the property's deferred resolution when SwiftUI updates it.
+    ///
+    /// The first result is retained for this property's SwiftUI identity. Later updates
+    /// do not resolve again when the application, qualifier, or arguments change.
     public mutating func update() {
         storage.resolveIfNeeded(
             application: usesApplication ? application : nil,

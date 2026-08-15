@@ -1,14 +1,5 @@
 import Skein
 
-enum ServiceEnvironment: SkeinQualifier {
-    case production
-    case staging
-}
-
-struct ServiceEndpoint {
-    let baseURL: String
-}
-
 let endpointModule = module {
     single(ServiceEndpoint.self, qualifier: ServiceEnvironment.production, provider: { _ in
         ServiceEndpoint(baseURL: "https://api.example.com")

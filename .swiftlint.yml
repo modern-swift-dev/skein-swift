@@ -1,5 +1,6 @@
 excluded:
   - .build
+  - Examples/.build
   - .swiftpm
 
 disabled_rules:

@@ -1,13 +1,5 @@
 import Skein
 
-enum ConnectionError: Error {
-    case unavailable
-}
-
-final class Attempts {
-    var count = 0
-}
-
 let attempts = Attempts()
 let retryModule = module {
     single(String.self, provider: { _ in

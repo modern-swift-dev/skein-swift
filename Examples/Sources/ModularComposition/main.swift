@@ -1,39 +1,5 @@
 import Skein
 
-protocol APIClient {
-    func fetchUserName() -> String
-}
-
-final class LiveAPIClient: APIClient {
-    func fetchUserName() -> String {
-        "Taylor"
-    }
-}
-
-final class UserRepository {
-    private let client: any APIClient
-
-    init(client: any APIClient) {
-        self.client = client
-    }
-
-    func currentUserName() -> String {
-        client.fetchUserName()
-    }
-}
-
-final class ProfilePresenter {
-    private let repository: UserRepository
-
-    init(repository: UserRepository) {
-        self.repository = repository
-    }
-
-    func title() -> String {
-        "Profile: \(repository.currentUserName())"
-    }
-}
-
 let networkingModule = module {
     single((any APIClient).self, provider: { _ in LiveAPIClient() })
 }

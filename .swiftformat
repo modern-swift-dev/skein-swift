@@ -1,4 +1,4 @@
---exclude .build
+--exclude .build,Examples/.build
 --swiftversion 6.0
 --allman false
 --binarygrouping 4,8
