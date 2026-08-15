@@ -42,6 +42,9 @@ jobs:
         run: |
           xcodebuild build -scheme Skein -destination '${{ matrix.destination }}'
           xcodebuild build -scheme SkeinSwiftUI -destination '${{ matrix.destination }}'
+          if [ '${{ matrix.destination }}' = 'generic/platform=macOS' ]; then
+            xcodebuild build -scheme SkeinVapor -destination '${{ matrix.destination }}'
+          fi
       - name: macOS SwiftPM tests
         if: matrix.destination == 'generic/platform=macOS'
         run: swift test

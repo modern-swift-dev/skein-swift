@@ -48,6 +48,21 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
         self.identity = identity
     }
 
+    package init(
+        container: Container,
+        identity: ScopeIdentity,
+        seededKey: BindingKey,
+        seededValue: some Sendable,
+        seededDisposer: BindingDisposer?
+    ) {
+        self.container = container
+        self.identity = identity
+        let cached = Container.CachedInstance(value: seededValue, disposer: seededDisposer)
+        instances[seededKey] = cached
+        asyncInstances[seededKey] = .resolved(cached)
+        completedInstances.append(cached)
+    }
+
     @MainActor public func get<Service>(
         _ type: Service.Type,
         qualifier: (any SkeinQualifier)?

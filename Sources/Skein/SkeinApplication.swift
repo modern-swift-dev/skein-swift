@@ -80,6 +80,14 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
         try container.createScope(type, id: id)
     }
 
+    package func createScope<Kind: SkeinScope, Service: Sendable>(
+        _ type: Kind.Type,
+        id: some Hashable & Sendable,
+        seeding service: Service
+    ) throws -> SkeinScopeInstance<Kind> {
+        try container.createScope(type, id: id, seeding: service)
+    }
+
     /// Structurally validates every binding marked as an application root.
     public func validateGraph() throws -> GraphValidationReport {
         try container.validateGraph()

@@ -436,6 +436,39 @@ package final class Container: Resolver, @unchecked Sendable {
         }
     }
 
+    package func createScope<Kind: SkeinScope, Service: Sendable>(
+        _ type: Kind.Type,
+        id: some Hashable & Sendable,
+        seeding service: Service
+    ) throws -> SkeinScopeInstance<Kind> {
+        try lock.withLock {
+            try ensureActive()
+            let identity = ScopeIdentity(type: type, id: id)
+            guard scopes[identity] == nil else {
+                throw SkeinError.duplicateScope(scope: identity.typeName, id: identity.idDescription)
+            }
+            let key = BindingKey(Service.self, qualifier: nil)
+            guard let binding = bindings[key]?.first(where: {
+                if case let .scoped(scopeType, _) = $0.lifetime {
+                    return scopeType == ObjectIdentifier(type)
+                }
+                return false
+            }) else {
+                throw missing(key)
+            }
+            let scope = SkeinScopeInstance<Kind>(
+                container: self,
+                identity: identity,
+                seededKey: key,
+                seededValue: service,
+                seededDisposer: binding.disposer
+            )
+            scopes[identity] = scope
+            scopeCreationOrder.append(identity)
+            return scope
+        }
+    }
+
     package func detachScope(_ identity: ScopeIdentity) {
         lock.withLock {
             scopes.removeValue(forKey: identity)

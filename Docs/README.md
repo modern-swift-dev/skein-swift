@@ -1,6 +1,6 @@
 # Skein documentation
 
-Skein is a small, type-safe dependency-injection container for Swift. It supports independently owned applications as well as a global convenience API. The `SkeinSwiftUI` product is documented below.
+Skein is a small, type-safe dependency-injection container for Swift. It supports independently owned applications as well as a global convenience API. Optional SwiftUI and Vapor integrations are documented below.
 
 ## Guides
 
@@ -13,6 +13,7 @@ Skein is a small, type-safe dependency-injection container for Swift. It support
 - [MainActor-first and validation migration](migration-main-actor-validation.md) — binding roots and breaking API renames.
 - [Testing with manual doubles](testing.md) — isolate tests with a fresh container and hand-written fakes.
 - [Concurrency and main-actor bindings](concurrency-and-limitations.md) — actor-isolated resolution, thread-safety guarantees, and current boundaries.
+- [Vapor integration](vapor.md) — application ownership, request-scoped services, and automatic shutdown.
 
 For complete programs rather than isolated snippets, see the [runnable examples](../Examples/README.md).
 
@@ -37,3 +38,4 @@ For complete programs rather than isolated snippets, see the [runnable examples]
 | Inspect lifecycle state | `isSkeinStarted` |
 | Declare and validate a graph root | `factory(...).root()` and `await SkeinApplication(validation: .declaredRoots) { ... }` |
 | Distinguish equal service types | `qualifier: SomeQualifier.value` |
+| Integrate with Vapor 4.122 | `await app.skein.initialize { ... }` / `try request.skein.get()` |

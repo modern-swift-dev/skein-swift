@@ -14,6 +14,8 @@ Add this package as a dependency in Xcode or Swift Package Manager, then depend 
 .product(name: "Skein", package: "skein-swift")
 ```
 
+Vapor 4 applications can instead add the `SkeinVapor` product alongside `Skein`. The integration is available on macOS 15 and Linux and pins Vapor 4.122.0.
+
 ## Quick start
 
 Bindings declare their exposed type and receive a `Resolver` for their own dependencies. A `single` is created once on first use; a `factory` creates a new value for every resolution.
@@ -56,6 +58,7 @@ Start with the [documentation index](Docs/README.md), or jump directly to a focu
 - [Graph validation and migration](Docs/migration-main-actor-validation.md)
 - [Testing with manual doubles](Docs/testing.md)
 - [Concurrency and main-actor bindings](Docs/concurrency-and-limitations.md)
+- [Vapor integration](Docs/vapor.md)
 
 ## Runnable examples
 
