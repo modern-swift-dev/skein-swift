@@ -75,6 +75,8 @@ public func nonisolatedFactory<Service: Sendable, Arguments: Sendable, each Depe
     }.withDependencies(edges)
 }
 
+// Swift 6.0 misdiagnoses pack arguments passed directly to @isolated(any) functions.
+// Async function conversion preserves runtime isolation while avoiding that static crossing.
 @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
 public func actorSingle<Service: Sendable, Isolation: GlobalActor, each Dependency: Sendable>(
     _ type: Service.Type, isolatedTo: Isolation.Type,
@@ -86,9 +88,10 @@ public func actorSingle<Service: Sendable, Isolation: GlobalActor, each Dependen
     var edges: [BindingDependency] = []
     for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
     let actualActorID = constructor.isolation.map(ObjectIdentifier.init)
+    let callable: @Sendable (repeat each Dependency) async throws -> Service = constructor
     return actorSingle(type, isolatedTo: isolatedTo, qualifier: qualifier, onClose: onClose,
                        fileID: fileID, line: line) { resolver in
-        try await constructor(repeat resolver.actorGet((each Dependency).self))
+        try await callable(repeat resolver.actorGet((each Dependency).self))
     }.withDependencies(edges).withActualActorID(actualActorID)
 }
 
@@ -101,8 +104,9 @@ public func actorFactory<Service: Sendable, Isolation: GlobalActor, each Depende
     var edges: [BindingDependency] = []
     for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
     let actualActorID = constructor.isolation.map(ObjectIdentifier.init)
+    let callable: @Sendable (repeat each Dependency) async throws -> Service = constructor
     return actorFactory(type, isolatedTo: isolatedTo, qualifier: qualifier, fileID: fileID, line: line) { resolver in
-        try await constructor(repeat resolver.actorGet((each Dependency).self))
+        try await callable(repeat resolver.actorGet((each Dependency).self))
     }.withDependencies(edges).withActualActorID(actualActorID)
 }
 
@@ -115,9 +119,10 @@ public func actorFactory<Service: Sendable, Arguments: Sendable, Isolation: Glob
     var edges: [BindingDependency] = []
     for dependency in repeat (each Dependency).self { edges.append(.init(dependency)) }
     let actualActorID = constructor.isolation.map(ObjectIdentifier.init)
+    let callable: @Sendable (Arguments, repeat each Dependency) async throws -> Service = constructor
     return actorFactory(type, arguments: arguments, isolatedTo: isolatedTo, qualifier: qualifier,
                         fileID: fileID, line: line) { resolver, arguments in
-        try await constructor(arguments, repeat resolver.actorGet((each Dependency).self))
+        try await callable(arguments, repeat resolver.actorGet((each Dependency).self))
     }.withDependencies(edges).withActualActorID(actualActorID)
 }
 
