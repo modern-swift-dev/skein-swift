@@ -1,3 +1,14 @@
+SHELL := /bin/bash
+
+SCHEME ?= Skein-Package
+IOS_DESTINATION ?= platform=iOS Simulator,name=iPhone 17 Pro,OS=latest
+TVOS_DESTINATION ?= platform=tvOS Simulator,name=Apple TV 4K (3rd generation),OS=latest
+WATCHOS_DESTINATION ?= platform=watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=latest
+VISIONOS_DESTINATION ?= platform=visionOS Simulator,name=Apple Vision Pro,OS=latest
+
+.PHONY: setup lint format test test-swift test-examples test-linux test-macos \
+	test-ios test-tvos test-watchos test-visionos test-apple test-all
+
 setup:
 
 	brew bundle install
@@ -24,17 +35,13 @@ test-linux:
 		swift:6.3 \
 		bash -c 'swift test --scratch-path .build/linux'
 
-test-macos:
-	set -o pipefail && \
-	xcodebuild test \
-		-scheme mock-4-swift-Package \
-		-destination platform="macOS" | mint run --no-install cpisciotta/xcbeautify -q
+test-macos: test-swift
 
 test-ios:
 	set -o pipefail && \
 	xcodebuild test \
-		-scheme mock-4-swift-Package \
-		-destination platform="iOS Simulator,name=iPhone 17 Pro,OS=26.5" | mint run --no-install cpisciotta/xcbeautify -q
+		-scheme "$(SCHEME)" \
+		-destination "$(IOS_DESTINATION)" | mint run --no-install cpisciotta/xcbeautify -q
 
 test-swift:
 	set -o pipefail && \
@@ -42,16 +49,28 @@ test-swift:
 
 test: test-swift
 
+test-examples:
+	set -o pipefail && \
+	swift test --package-path Examples | mint run --no-install cpisciotta/xcbeautify -q
+
 test-tvos:
 	set -o pipefail && \
 	xcodebuild test \
-		-scheme mock-4-swift-Package \
-		-destination platform="tvOS Simulator,name=Apple TV 4K (3rd generation),OS=26.5" | mint run --no-install cpisciotta/xcbeautify -q
+		-scheme "$(SCHEME)" \
+		-destination "$(TVOS_DESTINATION)" | mint run --no-install cpisciotta/xcbeautify -q
 
 test-watchos:
 	set -o pipefail && \
 	xcodebuild test \
-		-scheme mock-4-swift-Package \
-		-destination platform="watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=26.5" | mint run --no-install cpisciotta/xcbeautify -q
+		-scheme "$(SCHEME)" \
+		-destination "$(WATCHOS_DESTINATION)" | mint run --no-install cpisciotta/xcbeautify -q
 
-test-all: test-swift test-macos test-ios test-tvos test-watchos test-linux
+test-visionos:
+	set -o pipefail && \
+	xcodebuild test \
+		-scheme "$(SCHEME)" \
+		-destination "$(VISIONOS_DESTINATION)" | mint run --no-install cpisciotta/xcbeautify -q
+
+test-apple: test-macos test-ios test-tvos test-watchos test-visionos
+
+test-all: test-apple test-examples test-linux

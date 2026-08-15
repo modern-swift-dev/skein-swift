@@ -1,4 +1,4 @@
-#if canImport(SwiftUI)
+#if canImport(AppKit)
 import AppKit
 import Skein
 import SkeinSwiftUI
