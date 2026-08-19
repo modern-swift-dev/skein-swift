@@ -23,36 +23,32 @@ jobs:
   apple:
     runs-on: macos-26
     env:
-      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: macOS
-            destination: platform=macOS
           - platform: iOS
-            destination: platform=iOS Simulator,name=iPhone 17 Pro,OS=latest
             simulator-name: iPhone 17 Pro
             runtime-platform: iOS
           - platform: tvOS
-            destination: platform=tvOS Simulator,name=Apple TV 4K (3rd generation),OS=latest
             simulator-name: Apple TV 4K (3rd generation)
             runtime-platform: tvOS
           - platform: visionOS
-            destination: platform=visionOS Simulator,name=Apple Vision Pro,OS=latest
             simulator-name: Apple Vision Pro
             runtime-platform: visionOS
           - platform: watchOS
-            destination: platform=watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=latest
             simulator-name: Apple Watch Series 11 (46mm)
             runtime-platform: watchOS
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Xcode 26.4.1 and Swift 6.3
+      - name: Verify Xcode 26.6 and Swift 6.3
         run: |
-          xcodebuild -version | grep -F 'Xcode 26.4.1'
+          xcodebuild -version | grep -F 'Xcode 26.6'
           swift --version | grep -F 'Swift version 6.3'
       - name: Ensure ${{ matrix.simulator-name }} simulator exists
+        id: simulator
         if: matrix.platform != 'macOS'
         env:
           SIMULATOR_NAME: ${{ matrix.simulator-name }}
@@ -76,23 +72,45 @@ jobs:
               '
           )"
 
-          if xcrun simctl list devices "$runtime_identifier" --json |
-            jq -e --arg name "$SIMULATOR_NAME" \
-              '[.devices[][] | select(.name == $name and .isAvailable)] | length > 0' \
-              >/dev/null; then
-            echo "Using existing $SIMULATOR_NAME on $runtime_identifier"
+          if device_identifier="$(
+            xcrun simctl list devices available --json |
+              jq -er \
+                --arg name "$SIMULATOR_NAME" \
+                --arg runtime "$runtime_identifier" \
+                'first(.devices[$runtime][] | select(.name == $name) | .udid)'
+          )"; then
+            echo "Using existing $SIMULATOR_NAME ($device_identifier)"
           else
-            xcrun simctl create \
+            device_identifier="$(xcrun simctl create \
               "$SIMULATOR_NAME" \
               "$device_type_identifier" \
-              "$runtime_identifier"
+              "$runtime_identifier")"
           fi
+
+          echo "device-id=$device_identifier" >> "$GITHUB_OUTPUT"
       - name: Build for ${{ matrix.platform }}
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.device-id }}
         run: |
-          xcodebuild build -scheme Skein -destination '${{ matrix.destination }}'
-          xcodebuild build -scheme SkeinSwiftUI -destination '${{ matrix.destination }}'
           if [ '${{ matrix.platform }}' = 'macOS' ]; then
-            xcodebuild build -scheme SkeinVapor -destination '${{ matrix.destination }}'
+            destination='platform=macOS'
+          else
+            destination="id=$SIMULATOR_ID"
+          fi
+
+          xcodebuild build -scheme Skein -destination "$destination"
+          xcodebuild build -scheme SkeinSwiftUI -destination "$destination"
+          if [ '${{ matrix.platform }}' = 'macOS' ]; then
+            xcodebuild build -scheme SkeinVapor -destination "$destination"
           fi
       - name: Test on ${{ matrix.platform }}
-        run: xcodebuild test -scheme Skein-Package -destination '${{ matrix.destination }}'
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.device-id }}
+        run: |
+          if [ '${{ matrix.platform }}' = 'macOS' ]; then
+            destination='platform=macOS'
+          else
+            destination="id=$SIMULATOR_ID"
+          fi
+
+          xcodebuild test -scheme Skein-Package -destination "$destination"
