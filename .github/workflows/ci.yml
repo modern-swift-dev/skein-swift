@@ -25,26 +25,74 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
     strategy:
+      fail-fast: false
       matrix:
-        destination:
-          - generic/platform=macOS
-          - generic/platform=iOS
-          - generic/platform=tvOS
-          - generic/platform=visionOS
-          - generic/platform=watchOS
+        include:
+          - platform: macOS
+            destination: platform=macOS
+          - platform: iOS
+            destination: platform=iOS Simulator,name=iPhone 17 Pro,OS=latest
+            simulator-name: iPhone 17 Pro
+            runtime-platform: iOS
+          - platform: tvOS
+            destination: platform=tvOS Simulator,name=Apple TV 4K (3rd generation),OS=latest
+            simulator-name: Apple TV 4K (3rd generation)
+            runtime-platform: tvOS
+          - platform: visionOS
+            destination: platform=visionOS Simulator,name=Apple Vision Pro,OS=latest
+            simulator-name: Apple Vision Pro
+            runtime-platform: visionOS
+          - platform: watchOS
+            destination: platform=watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=latest
+            simulator-name: Apple Watch Series 11 (46mm)
+            runtime-platform: watchOS
     steps:
       - uses: actions/checkout@v4
       - name: Verify Xcode 26.4.1 and Swift 6.3
         run: |
           xcodebuild -version | grep -F 'Xcode 26.4.1'
           swift --version | grep -F 'Swift version 6.3'
-      - name: Build for ${{ matrix.destination }}
+      - name: Ensure ${{ matrix.simulator-name }} simulator exists
+        if: matrix.platform != 'macOS'
+        env:
+          SIMULATOR_NAME: ${{ matrix.simulator-name }}
+          RUNTIME_PLATFORM: ${{ matrix.runtime-platform }}
+        run: |
+          device_type_identifier="$(
+            xcrun simctl list devicetypes --json |
+              jq -er --arg name "$SIMULATOR_NAME" \
+                'first(.devicetypes[] | select(.name == $name) | .identifier)'
+          )"
+          runtime_identifier="$(
+            xcrun simctl list runtimes available --json |
+              jq -er --arg platform "$RUNTIME_PLATFORM" '
+                [
+                  .runtimes[]
+                  | select(.name | startswith($platform + " "))
+                ]
+                | sort_by(.version | split(".") | map(tonumber))
+                | last
+                | .identifier
+              '
+          )"
+
+          if xcrun simctl list devices "$runtime_identifier" --json |
+            jq -e --arg name "$SIMULATOR_NAME" \
+              '[.devices[][] | select(.name == $name and .isAvailable)] | length > 0' \
+              >/dev/null; then
+            echo "Using existing $SIMULATOR_NAME on $runtime_identifier"
+          else
+            xcrun simctl create \
+              "$SIMULATOR_NAME" \
+              "$device_type_identifier" \
+              "$runtime_identifier"
+          fi
+      - name: Build for ${{ matrix.platform }}
         run: |
           xcodebuild build -scheme Skein -destination '${{ matrix.destination }}'
           xcodebuild build -scheme SkeinSwiftUI -destination '${{ matrix.destination }}'
-          if [ '${{ matrix.destination }}' = 'generic/platform=macOS' ]; then
+          if [ '${{ matrix.platform }}' = 'macOS' ]; then
             xcodebuild build -scheme SkeinVapor -destination '${{ matrix.destination }}'
           fi
-      - name: macOS SwiftPM tests
-        if: matrix.destination == 'generic/platform=macOS'
-        run: swift test
+      - name: Test on ${{ matrix.platform }}
+        run: xcodebuild test -scheme Skein-Package -destination '${{ matrix.destination }}'
