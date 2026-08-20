@@ -1,0 +1,66 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import LifetimeDiagram from "../../components/LifetimeDiagram.astro";
+import { rawRepositoryURL } from "../../lib/links";
+import { latestRelease } from "../../lib/release";
+
+const release = await latestRelease();
+const installVersion = release.version.startsWith("v") ? release.version.slice(1) : release.version;
+
+const registration = `import Foundation
+import Skein
+
+protocol Clock { func now() -> Date }
+final class SystemClock: Clock {
+    func now() -> Date { Date() }
+}
+final class GreetingService {
+    private let clock: any Clock
+    init(clock: any Clock) { self.clock = clock }
+}
+
+let appModule = module {
+    single((any Clock).self, provider: { _ in SystemClock() })
+    factory(GreetingService.self, using: GreetingService.init)
+}`;
+const resolution = `try startSkein { appModule }
+
+let greetingService: GreetingService = try get()
+let clock = try get((any Clock).self)
+
+// Call during application shutdown or test teardown.
+stopSkein()`;
+const validation = `let featureModule = module {
+    single(APIClient.self, using: APIClient.init)
+    factory(FeatureService.self, using: FeatureService.init)
+        .root(.eager)
+}
+
+let application = try await SkeinApplication(validation: .declaredRoots) {
+    featureModule
+}`;
+---
+
+<BaseLayout title="Getting started with Skein" description="Register, resolve, and validate a small Skein dependency graph.">
+  <article class="page-shell max-w-5xl py-16 md:py-22">
+    <p class="text-sm font-semibold text-indigo-ink">Getting started</p>
+    <h1 class="mt-3 text-4xl font-bold tracking-tight text-ink sm:text-5xl">Register the graph you mean to run.</h1>
+    <p class="mt-5 max-w-3xl text-lg leading-8 text-muted">Skein modules declare what consumers resolve. Providers receive a resolver for their own dependencies. The normal APIs are MainActor-isolated, so they work naturally with UI services that are not Sendable.</p>
+
+    <section class="mt-14"><h2 class="text-2xl font-bold text-ink">1. Check requirements and add the package</h2><p class="mt-3 leading-7 text-muted">Skein uses Swift 6. The package supports macOS 15, iOS 17, tvOS 17, watchOS 10, and visionOS 1. Add the versioned package dependency in Xcode or your Swift Package Manager manifest, then depend on the <code>Skein</code> product.</p><CodeBlock code={`dependencies: [
+    .package(url: "https://github.com/modern-swift-dev/skein-swift.git", from: "${installVersion}")
+],
+targets: [
+    .target(
+        name: "MyApp",
+        dependencies: [.product(name: "Skein", package: "skein-swift")]
+    )
+]`} title={`Package.swift, Skein ${release.version}`} /></section>
+    <section class="mt-14"><h2 class="text-2xl font-bold text-ink">2. Define a module</h2><p class="mt-3 leading-7 text-muted">Register the type that callers ask for. When a service depends on a protocol, register the protocol existential rather than the implementation type.</p><CodeBlock code={registration} title="An application module" /></section>
+    <section class="mt-14"><h2 class="text-2xl font-bold text-ink">3. Start and resolve</h2><p class="mt-3 leading-7 text-muted">Install the global application before calling <code>get()</code>. Both startup and resolution can throw.</p><CodeBlock code={resolution} title="Application lifetime" /></section>
+    <section class="mt-14"><h2 class="text-2xl font-bold text-ink">4. Validate declared startup roots</h2><p class="mt-3 leading-7 text-muted">A structural root checks constructor edges without running its provider. An eager root resolves after structural validation passes. Put the root policy on the binding that owns the startup work.</p><CodeBlock code={validation} title="Async validated startup" /></section>
+    <section class="mt-14"><LifetimeDiagram /></section>
+    <p class="mt-12 text-sm text-muted">The full guide is kept with the module source: <a href={`${rawRepositoryURL}/Sources/Skein/Skein.docc/GettingStarted.md`}>GettingStarted.md</a>.</p>
+  </article>
+</BaseLayout>

@@ -1,0 +1,15 @@
+<figure class="surface p-6" aria-labelledby="lifetime-caption">
+  <div class="grid gap-4 md:grid-cols-2">
+    <section class="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-5">
+      <p class="text-sm font-semibold text-indigo-ink">single</p>
+      <div class="mt-4 flex items-center gap-3"><span class="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">get()</span><span class="text-indigo-400">→</span><span class="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm">one cached value</span></div>
+      <p class="mt-4 text-sm leading-6 text-muted">The provider runs on the first successful resolution. Later lookups return that value.</p>
+    </section>
+    <section class="rounded-2xl border border-violet-100 bg-violet-50/70 p-5">
+      <p class="text-sm font-semibold text-violet-ink">factory</p>
+      <div class="mt-4 flex items-center gap-3"><span class="rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white">get()</span><span class="text-violet-400">→</span><span class="rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm">new value</span></div>
+      <p class="mt-4 text-sm leading-6 text-muted">The provider runs for every resolution. Its dependencies may still be singletons.</p>
+    </section>
+  </div>
+  <figcaption id="lifetime-caption" class="mt-4 text-sm text-muted">Choose a lifetime at registration time. Skein keeps that decision visible in the module.</figcaption>
+</figure>

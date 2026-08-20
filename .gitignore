@@ -35,3 +35,7 @@ playground.xcworkspace
 .swiftpm
 
 .DS_Store
+
+# Website dependencies and generated static site
+Website/node_modules/
+Website/dist/

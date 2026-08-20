@@ -1,0 +1,75 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import CodeBlock from "../components/CodeBlock.astro";
+import DocCard from "../components/DocCard.astro";
+import LifetimeDiagram from "../components/LifetimeDiagram.astro";
+import ReleaseCard from "../components/ReleaseCard.astro";
+import { internalPath, repositoryURL } from "../lib/links";
+import { latestRelease } from "../lib/release";
+
+const release = await latestRelease();
+const quickStart = `import Skein
+
+let appModule = module {
+    single((any HTTPClient).self, provider: { _ in URLSessionClient() })
+    factory(UserService.self, using: UserService.init)
+}
+
+try startSkein { appModule }
+let service: UserService = try get()
+stopSkein()`;
+---
+
+<BaseLayout title="Skein for Swift" description="A MainActor-first, type-safe dependency-injection container for Swift.">
+  <section class="overflow-hidden border-b border-indigo-100 bg-[radial-gradient(circle_at_75%_20%,#ddd6fe,transparent_28rem),linear-gradient(135deg,#f8faff,#eef2ff_55%,#faf5ff)]">
+    <div class="page-shell grid gap-12 py-20 md:grid-cols-[1.08fr_.92fr] md:items-center md:py-28">
+      <div class="entry">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-ink">Dependency injection for Swift</p>
+        <h1 class="mt-5 max-w-3xl text-5xl font-bold tracking-[-0.04em] text-ink sm:text-6xl">Make the graph <span class="gradient-text">explicit.</span></h1>
+        <p class="mt-6 max-w-2xl text-lg leading-8 text-muted">Skein registers the services your app owns, resolves them by type, and keeps UI-oriented graphs on MainActor by default.</p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a class="rounded-xl bg-indigo-700 px-5 py-3 font-semibold text-white no-underline shadow-lg shadow-indigo-700/20 transition hover:bg-indigo-800" href={internalPath("/documentation/getting-started/")}>Get started</a>
+          <a class="rounded-xl border border-indigo-200 bg-white px-5 py-3 font-semibold text-indigo-ink no-underline transition hover:border-indigo-300" href={repositoryURL}>View on GitHub ↗</a>
+        </div>
+      </div>
+      <div class="entry [animation-delay:120ms]"><CodeBlock code={quickStart} title="A small application module" /></div>
+    </div>
+  </section>
+
+  <section class="page-shell grid gap-5 py-16 md:grid-cols-3">
+    <div class="surface p-6"><h2 class="text-xl font-bold text-ink">Capabilities</h2><p class="mt-3 leading-7 text-muted">Register values as lazy singletons, factories, and typed scopes. Use constructor injection, assisted factories, protocol bindings, qualifiers, and modules that compose by feature.</p></div>
+    <div class="surface p-6"><h2 class="text-xl font-bold text-ink">Platform support</h2><p class="mt-3 leading-7 text-muted">Skein uses Swift 6 and supports macOS 15, iOS 17, tvOS 17, watchOS 10, and visionOS 1. The optional Vapor integration also supports Linux.</p></div>
+    <div class="surface p-6"><h2 class="text-xl font-bold text-ink">Source and docs</h2><p class="mt-3 leading-7 text-muted">The package, DocC articles, and executable examples are kept in the open repository. Stable releases include matching DocC archives.</p><a class="mt-4 inline-block font-semibold text-indigo-ink" href={repositoryURL}>Inspect the source ↗</a></div>
+  </section>
+
+  <section class="page-shell py-18 md:py-24">
+    <div class="grid gap-10 lg:grid-cols-[1fr_.9fr] lg:items-start">
+      <div>
+        <p class="text-sm font-semibold text-indigo-ink">Registration has consequences</p>
+        <h2 class="mt-3 text-3xl font-bold tracking-tight text-ink">Pick a lifetime where the dependency is declared.</h2>
+        <p class="mt-4 max-w-2xl leading-7 text-muted">A <code>single</code> is lazy and cached after it resolves successfully. A <code>factory</code> runs every time. Constructor registrations record their dependencies, which lets Skein inspect declared roots before startup.</p>
+      </div>
+      <LifetimeDiagram />
+    </div>
+  </section>
+
+  <section class="page-shell grid gap-6 pb-20 lg:grid-cols-[1.05fr_.95fr]">
+    <ReleaseCard release={release} />
+    <div class="surface p-7">
+      <p class="text-sm font-semibold text-violet-ink">Built around Swift isolation</p>
+      <h2 class="mt-3 text-2xl font-bold tracking-tight text-ink">MainActor first. Explicit when it is not.</h2>
+      <p class="mt-4 leading-7 text-muted">Unprefixed APIs keep UI graphs concise. Use the <code>nonisolated...</code> APIs for Sendable dependencies outside MainActor, or the async <code>actor...</code> APIs for your own global actor.</p>
+      <a class="mt-6 inline-block font-semibold text-indigo-ink" href={internalPath("/documentation/")}>Read the module guides →</a>
+    </div>
+  </section>
+
+  <section class="border-y border-indigo-100 bg-white py-20">
+    <div class="page-shell">
+      <p class="text-sm font-semibold text-indigo-ink">Start with the useful bits</p>
+      <div class="mt-6 grid gap-5 md:grid-cols-2">
+        <DocCard href={internalPath("/documentation/getting-started/")} title="Getting started" description="Create a module, start an application, resolve a service, and validate declared roots." />
+        <DocCard href={internalPath("/examples/")} title="Runnable examples" description="Read the source that ships in this repository, then run each example with Swift Package Manager." />
+      </div>
+    </div>
+  </section>
+</BaseLayout>

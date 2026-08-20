@@ -1,0 +1,23 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DocCard from "../../components/DocCard.astro";
+import { internalPath } from "../../lib/links";
+const guides = [
+  { title: "Getting started", href: internalPath("/documentation/getting-started/"), description: "Build a module, install it, resolve a service, and ask Skein to validate declared roots." },
+  { title: "Skein API reference", href: internalPath("/api/skein/"), description: "Browse the generated DocC reference for the core Skein module." },
+  { title: "SkeinSwiftUI API reference", href: internalPath("/api/skein-swiftui/"), description: "Browse the generated DocC reference for the optional SwiftUI adapter." },
+  { title: "SkeinVapor API reference", href: internalPath("/api/skein-vapor/"), description: "Browse the generated DocC reference for the optional Vapor integration." },
+  { title: "Bindings and lifetimes", href: "https://github.com/modern-swift-dev/skein-swift/blob/main/Sources/Skein/Skein.docc/BindingsAndLifetimes.md", description: "Use lazy singles, factories, typed scopes, constructor injection, and explicit isolation." },
+  { title: "Modules and protocol bindings", href: "https://github.com/modern-swift-dev/skein-swift/blob/main/Sources/Skein/Skein.docc/ModulesAndProtocolBindings.md", description: "Keep bindings close to feature ownership and expose implementations through protocol types." },
+  { title: "Lifecycle and errors", href: "https://github.com/modern-swift-dev/skein-swift/blob/main/Sources/Skein/Skein.docc/LifecycleAndErrors.md", description: "Control the global application, startup validation, disposal, and typed errors." },
+  { title: "Concurrency and limitations", href: "https://github.com/modern-swift-dev/skein-swift/blob/main/Sources/Skein/Skein.docc/ConcurrencyAndLimitations.md", description: "Use nonisolated and custom-global-actor bindings where they belong." },
+  { title: "Skein adapters", href: "https://github.com/modern-swift-dev/skein-swift/tree/main/Sources", description: "Optional SkeinSwiftUI and SkeinVapor targets live alongside the core module." }
+];
+---
+
+<BaseLayout title="Skein documentation" description="Guides for Skein modules, bindings, lifetimes, validation, and isolation.">
+  <section class="border-b border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-violet-50 py-18 md:py-24">
+    <div class="page-shell"><p class="text-sm font-semibold text-indigo-ink">Documentation</p><h1 class="mt-3 text-4xl font-bold tracking-tight text-ink sm:text-5xl">The Skein module guides.</h1><p class="mt-5 max-w-2xl text-lg leading-8 text-muted">The core API is documented in DocC with the source. This site points you at the practical path through it.</p></div>
+  </section>
+  <section class="page-shell py-16"><div class="grid gap-5 md:grid-cols-2">{guides.map((guide) => <DocCard {...guide} />)}</div></section>
+</BaseLayout>
