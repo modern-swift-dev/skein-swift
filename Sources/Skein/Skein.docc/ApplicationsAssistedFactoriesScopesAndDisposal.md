@@ -65,6 +65,8 @@ let scope = try application.createScope(UserScope.self, id: "user-42")
 let session: UserSession = try scope.get()
 ```
 
+Once closing begins, all resolution through that scope fails, including inherited root and assisted bindings. Closing a scope leaves application-owned singletons available through the application.
+
 Only one active `(scope type, ID)` pair is allowed; closing it permits a replacement with the same ID. Scopes are flat: one scope cannot depend on bindings from another scope, and root bindings cannot depend on scoped bindings.
 
 ## Async disposal

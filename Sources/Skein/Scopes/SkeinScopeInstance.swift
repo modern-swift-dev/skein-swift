@@ -277,7 +277,7 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
     /// Closes the scope and disposes completed instances in reverse creation order.
     ///
     /// Closing is idempotent. Concurrent callers wait for the first close operation to finish,
-    /// and subsequent resolution attempts fail because the scope is closed.
+    /// and subsequent resolution attempts, including inherited root bindings, fail because the scope is closed.
     public func close() async {
         let owner = ObjectIdentifier(self)
         if DisposalContext.owners.contains(owner) {
@@ -328,6 +328,13 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
                 }
             }
         }
+    }
+
+    /// Verifies that this scope still accepts resolution, including inherited root bindings.
+    ///
+    /// - Throws: A scope-lifecycle error when closing has begun.
+    package func ensureActive() throws {
+        try lock.withLock { try ensureActiveLocked() }
     }
 
     private func ensureActiveLocked() throws {

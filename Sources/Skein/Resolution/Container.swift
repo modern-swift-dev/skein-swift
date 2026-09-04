@@ -301,9 +301,12 @@ package final class Container: Resolver, @unchecked Sendable {
     ) throws -> Service {
         let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
+            try scope.ensureActive()
             let binding = try scopedBinding(for: key, scopeType: ObjectIdentifier(Kind.self))
             if binding.lifetime.isRoot {
-                return try resolveMainActor(type, qualifier: qualifier, arguments: arguments)
+                let value: Service = try resolveMainActor(type, qualifier: qualifier, arguments: arguments)
+                try scope.ensureActive()
+                return value
             }
             let value: Any
             switch binding.provider {
@@ -344,9 +347,12 @@ package final class Container: Resolver, @unchecked Sendable {
     ) throws -> Service {
         let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
+            try scope.ensureActive()
             let binding = try scopedBinding(for: key, scopeType: ObjectIdentifier(Kind.self))
             if binding.lifetime.isRoot {
-                return try resolveNonisolated(type, qualifier: qualifier, arguments: arguments)
+                let value: Service = try resolveNonisolated(type, qualifier: qualifier, arguments: arguments)
+                try scope.ensureActive()
+                return value
             }
             let value: Any
             switch binding.provider {
@@ -383,9 +389,12 @@ package final class Container: Resolver, @unchecked Sendable {
     ) async throws -> Service {
         let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
+            try scope.ensureActive()
             let binding = try scopedBinding(for: key, scopeType: ObjectIdentifier(Kind.self))
             if binding.lifetime.isRoot {
-                return try await resolveActor(type, qualifier: qualifier, arguments: arguments)
+                let value: Service = try await resolveActor(type, qualifier: qualifier, arguments: arguments)
+                try scope.ensureActive()
+                return value
             }
             let value: Any
             let resolver: any Resolver = scope
