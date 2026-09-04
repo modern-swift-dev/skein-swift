@@ -50,4 +50,4 @@ Opaque closure providers appear in the validation report but are not failures. C
 
 Lifecycle failures are direct `SkeinError` values. Resolution failures are `SkeinResolutionError`, which contains the underlying error and source-aware path frames. Invalid compositions fail with typed configuration errors. Isolation mismatches identify the required and actual binding isolation.
 
-Provider side effects are not rolled back if a later eager root fails. Eager singles remain cached; eager factories run during startup and again on later resolution.
+If eager startup fails or is cancelled, initialization awaits disposal of successfully cached services before throwing. Provider side effects outside managed singleton and scope resources are not rolled back. After successful startup, eager singles remain cached; eager factories run during startup and again on later resolution.

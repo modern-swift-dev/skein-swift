@@ -18,18 +18,27 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
 
     /// Creates an application and performs the requested startup validation.
     ///
+    /// Failed or cancelled startup awaits disposal of any cached services before throwing.
+    ///
     /// - Parameters:
     ///   - validation: The startup validation policy.
     ///   - configure: The main-actor builder that declares the application's modules.
-    /// - Throws: An error produced by configuration, structural validation, or eager resolution.
+    /// - Throws: An error produced by configuration, structural validation, eager resolution, or cancellation.
     @MainActor public init(
         validation: ValidationPolicy,
         @SkeinApplicationBuilder _ configure: @MainActor () -> [Module]
     ) async throws {
         let container = try Container(modules: configure())
-        switch validation {
-            case .declaredRoots:
-                startupValidationReport = try await container.validateDeclaredRootsAndStart()
+        do {
+            try Task.checkCancellation()
+            switch validation {
+                case .declaredRoots:
+                    startupValidationReport = try await container.validateDeclaredRootsAndStart()
+            }
+            try Task.checkCancellation()
+        } catch {
+            await container.close()
+            throw error
         }
         self.container = container
     }
