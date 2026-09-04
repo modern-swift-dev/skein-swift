@@ -3,6 +3,9 @@ import Skein
 import Vapor
 
 struct SkeinApplicationStorageKey: StorageKey {
-    typealias Value = SkeinApplication
+    enum Value: Sendable {
+        case initializing
+        case initialized(SkeinApplication)
+    }
 }
 #endif

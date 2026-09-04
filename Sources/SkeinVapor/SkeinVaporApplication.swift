@@ -20,12 +20,15 @@ public struct SkeinVaporApplication: Sendable {
     /// Pass `nil` for `validation` to use lazy, unvalidated construction.
     /// The middleware is inserted at the beginning of Vapor's middleware chain.
     /// Application resources are disposed when Vapor invokes `asyncShutdown()`.
+    /// Concurrent initialization attempts are rejected while startup is in progress.
+    /// Resolution remains unavailable until startup succeeds; failed startup can be retried.
     ///
     /// - Parameters:
     ///   - validation: The graph validation policy, or `nil` to skip validation.
     ///   - configure: A builder that returns the modules installed in the Skein application.
     /// - Throws: ``SkeinVaporError/applicationAlreadyInitialized`` when called more
-    ///   than once, or a Skein construction or validation error.
+    ///   than once or while initialization is in progress, or a Skein construction
+    ///   or validation error.
     @MainActor public func initialize(
         validation: ValidationPolicy? = .declaredRoots,
         @SkeinApplicationBuilder _ configure: @MainActor () -> [Module]
@@ -34,31 +37,37 @@ public struct SkeinVaporApplication: Sendable {
             throw SkeinVaporError.applicationAlreadyInitialized
         }
 
-        let modules = configure()
-        let requestModule = module {
-            nonisolatedScoped(Request.self, scope: VaporRequestScope.self) { _ in
-                throw SkeinVaporError.requestScopeUnavailable
+        application.storage[SkeinApplicationStorageKey.self] = .initializing
+        do {
+            let modules = configure()
+            let requestModule = module {
+                nonisolatedScoped(Request.self, scope: VaporRequestScope.self) { _ in
+                    throw SkeinVaporError.requestScopeUnavailable
+                }
             }
-        }
-        let skeinApplication: SkeinApplication
-        if let validation {
-            skeinApplication = try await SkeinApplication(validation: validation) {
-                modules
-                requestModule
+            let skeinApplication: SkeinApplication
+            if let validation {
+                skeinApplication = try await SkeinApplication(validation: validation) {
+                    modules
+                    requestModule
+                }
+            } else {
+                skeinApplication = try SkeinApplication {
+                    modules
+                    requestModule
+                }
             }
-        } else {
-            skeinApplication = try SkeinApplication {
-                modules
-                requestModule
-            }
-        }
 
-        application.storage[SkeinApplicationStorageKey.self] = skeinApplication
-        application.lifecycle.use(SkeinVaporLifecycle(application: skeinApplication))
-        application.middleware.use(
-            SkeinVaporRequestScopeMiddleware(application: skeinApplication),
-            at: .beginning
-        )
+            application.storage[SkeinApplicationStorageKey.self] = .initialized(skeinApplication)
+            application.lifecycle.use(SkeinVaporLifecycle(application: skeinApplication))
+            application.middleware.use(
+                SkeinVaporRequestScopeMiddleware(application: skeinApplication),
+                at: .beginning
+            )
+        } catch {
+            application.storage[SkeinApplicationStorageKey.self] = nil
+            throw error
+        }
     }
 
     /// Resolves a Sendable application-lifetime service.
@@ -158,7 +167,7 @@ public struct SkeinVaporApplication: Sendable {
     }
 
     private func configuredApplication() throws -> SkeinApplication {
-        guard let skeinApplication = application.storage[SkeinApplicationStorageKey.self] else {
+        guard case let .initialized(skeinApplication) = application.storage[SkeinApplicationStorageKey.self] else {
             throw SkeinVaporError.applicationNotInitialized
         }
         return skeinApplication

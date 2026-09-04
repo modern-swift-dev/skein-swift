@@ -34,6 +34,79 @@ import XCTest
         try await app.asyncShutdown()
     }
 
+    @available(macOS 15, *) func testConcurrentInitializationRejectsSecondAttemptBeforeConfiguration() async throws {
+        let app = try await Application.make(.testing)
+        app.middleware = .init()
+        let gate = InitializationGate()
+        let startup = Task { @MainActor in
+            try await app.skein.initialize {
+                module {
+                    actorSingle(
+                        Int.self,
+                        isolatedTo: MainActor.self,
+                        provider: { @MainActor _ in
+                            await gate.wait()
+                            return 42
+                        }
+                    ).root(.eager)
+                }
+            }
+        }
+        await gate.waitUntilEntered()
+
+        XCTAssertThrowsError(try app.skein.get(Int.self)) { error in
+            XCTAssertEqual(error as? SkeinVaporError, .applicationNotInitialized)
+        }
+        var configuredDuplicate = false
+        do {
+            try await app.skein.initialize {
+                configuredDuplicate = true
+                return [module {}]
+            }
+            XCTFail("Expected concurrent initialization to fail")
+        } catch {
+            XCTAssertEqual(error as? SkeinVaporError, .applicationAlreadyInitialized)
+        }
+        XCTAssertFalse(configuredDuplicate)
+        XCTAssertTrue(app.middleware.resolve().isEmpty)
+
+        await gate.open()
+        try await startup.value
+        let value = try await app.skein.actorGet(Int.self)
+        XCTAssertEqual(value, 42)
+        XCTAssertEqual(app.middleware.resolve().count, 1)
+        try await app.asyncShutdown()
+    }
+
+    func testFailedInitializationAllowsRetry() async throws {
+        let app = try await Application.make(.testing)
+        app.middleware = .init()
+        do {
+            try await app.skein.initialize {
+                module {
+                    nonisolatedSingle(Int.self) { _ in
+                        throw ThrowingResponderError()
+                    }.root(.eager)
+                }
+            }
+            XCTFail("Expected eager startup to fail")
+        } catch {
+            let providerError = (error as? SkeinResolutionError)?.underlying ?? error
+            XCTAssertTrue(providerError is ThrowingResponderError)
+        }
+        XCTAssertThrowsError(try app.skein.get(Int.self)) { error in
+            XCTAssertEqual(error as? SkeinVaporError, .applicationNotInitialized)
+        }
+        XCTAssertTrue(app.middleware.resolve().isEmpty)
+
+        try await app.skein.initialize {
+            module { nonisolatedSingle(Int.self) { _ in 42 } }
+        }
+        XCTAssertEqual(try app.skein.get(Int.self), 42)
+        XCTAssertEqual(app.middleware.resolve().count, 1)
+        try await app.asyncShutdown()
+    }
+
     func testRequestScopeInjectsRequestAndCachesPerRequest() async throws {
         let app = try await Application.make(.testing)
         app.middleware = .init()
