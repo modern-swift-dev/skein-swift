@@ -189,15 +189,15 @@ package final class Container: Resolver, @unchecked Sendable {
     /// - Parameters:
     ///   - type: The service type to resolve.
     ///   - qualifier: The qualifier selecting a binding, or `nil` for an unqualified binding.
-    ///   - arguments: Assisted arguments, or `nil` for a non-assisted binding.
+    ///   - arguments: Assisted arguments whose static type selects the binding, or `nil` for a non-assisted binding.
     /// - Returns: The resolved service.
     /// - Throws: A resolution, isolation, or type-mismatch error, or an error from the provider.
-    @MainActor package func resolveMainActor<Service>(
+    @MainActor package func resolveMainActor<Service, Arguments>(
         _ type: Service.Type,
         qualifier: (any SkeinQualifier)?,
-        arguments: Any?
+        arguments: Arguments?
     ) throws -> Service {
-        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { Swift.type(of: $0) })
+        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
             let binding = try rootBinding(for: key)
             let value: Any
@@ -231,15 +231,15 @@ package final class Container: Resolver, @unchecked Sendable {
     /// - Parameters:
     ///   - type: The sendable service type to resolve.
     ///   - qualifier: The qualifier selecting a binding, or `nil` for an unqualified binding.
-    ///   - arguments: Assisted arguments, or `nil` for a non-assisted binding.
+    ///   - arguments: Assisted arguments whose static type selects the binding, or `nil` for a non-assisted binding.
     /// - Returns: The resolved service.
     /// - Throws: A resolution, isolation, or type-mismatch error, or an error from the provider.
-    package func resolveNonisolated<Service: Sendable>(
+    package func resolveNonisolated<Service: Sendable, Arguments: Sendable>(
         _ type: Service.Type,
         qualifier: (any SkeinQualifier)?,
-        arguments: Any?
+        arguments: Arguments?
     ) throws -> Service {
-        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { Swift.type(of: $0) })
+        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
             let binding = try rootBinding(for: key)
             let value: Any
@@ -268,15 +268,15 @@ package final class Container: Resolver, @unchecked Sendable {
     /// - Parameters:
     ///   - type: The sendable service type to resolve.
     ///   - qualifier: The qualifier selecting a binding, or `nil` for an unqualified binding.
-    ///   - arguments: Assisted arguments, or `nil` for a non-assisted binding.
+    ///   - arguments: Assisted arguments whose static type selects the binding, or `nil` for a non-assisted binding.
     /// - Returns: The resolved service.
     /// - Throws: A resolution or type-mismatch error, or an error from the provider.
-    package func resolveActor<Service: Sendable>(
+    package func resolveActor<Service: Sendable, Arguments: Sendable>(
         _ type: Service.Type,
         qualifier: (any SkeinQualifier)?,
-        arguments: Any?
+        arguments: Arguments?
     ) async throws -> Service {
-        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { Swift.type(of: $0) })
+        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
             let binding = try rootBinding(for: key)
             let value = try await resolveAnyActor(key: key, binding: binding, arguments: arguments)
@@ -292,14 +292,14 @@ package final class Container: Resolver, @unchecked Sendable {
     ///   - scope: The scope in which to resolve the binding.
     ///   - type: The service type to resolve.
     ///   - qualifier: The qualifier selecting a binding, or `nil` for an unqualified binding.
-    ///   - arguments: Assisted arguments, or `nil` for a non-assisted binding.
+    ///   - arguments: Assisted arguments whose static type selects the binding, or `nil` for a non-assisted binding.
     /// - Returns: The resolved service.
     /// - Throws: A resolution, isolation, scope-lifecycle, or type-mismatch error, or an error from the provider.
-    @MainActor package func resolveMainActorInScope<Kind: SkeinScope, Service>(
+    @MainActor package func resolveMainActorInScope<Kind: SkeinScope, Service, Arguments>(
         _ scope: SkeinScopeInstance<Kind>, type: Service.Type,
-        qualifier: (any SkeinQualifier)?, arguments: Any?
+        qualifier: (any SkeinQualifier)?, arguments: Arguments?
     ) throws -> Service {
-        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { Swift.type(of: $0) })
+        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
             let binding = try scopedBinding(for: key, scopeType: ObjectIdentifier(Kind.self))
             if binding.lifetime.isRoot {
@@ -335,14 +335,14 @@ package final class Container: Resolver, @unchecked Sendable {
     ///   - scope: The scope in which to resolve the binding.
     ///   - type: The sendable service type to resolve.
     ///   - qualifier: The qualifier selecting a binding, or `nil` for an unqualified binding.
-    ///   - arguments: Assisted arguments, or `nil` for a non-assisted binding.
+    ///   - arguments: Assisted arguments whose static type selects the binding, or `nil` for a non-assisted binding.
     /// - Returns: The resolved service.
     /// - Throws: A resolution, isolation, scope-lifecycle, or type-mismatch error, or an error from the provider.
-    package func resolveNonisolatedInScope<Kind: SkeinScope, Service: Sendable>(
+    package func resolveNonisolatedInScope<Kind: SkeinScope, Service: Sendable, Arguments: Sendable>(
         _ scope: SkeinScopeInstance<Kind>, type: Service.Type,
-        qualifier: (any SkeinQualifier)?, arguments: Any?
+        qualifier: (any SkeinQualifier)?, arguments: Arguments?
     ) throws -> Service {
-        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { Swift.type(of: $0) })
+        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
             let binding = try scopedBinding(for: key, scopeType: ObjectIdentifier(Kind.self))
             if binding.lifetime.isRoot {
@@ -374,14 +374,14 @@ package final class Container: Resolver, @unchecked Sendable {
     ///   - scope: The scope in which to resolve the binding.
     ///   - type: The sendable service type to resolve.
     ///   - qualifier: The qualifier selecting a binding, or `nil` for an unqualified binding.
-    ///   - arguments: Assisted arguments, or `nil` for a non-assisted binding.
+    ///   - arguments: Assisted arguments whose static type selects the binding, or `nil` for a non-assisted binding.
     /// - Returns: The resolved service.
     /// - Throws: A resolution, scope-lifecycle, or type-mismatch error, or an error from the provider.
-    package func resolveActorInScope<Kind: SkeinScope, Service: Sendable>(
+    package func resolveActorInScope<Kind: SkeinScope, Service: Sendable, Arguments: Sendable>(
         _ scope: SkeinScopeInstance<Kind>, type: Service.Type,
-        qualifier: (any SkeinQualifier)?, arguments: Any?
+        qualifier: (any SkeinQualifier)?, arguments: Arguments?
     ) async throws -> Service {
-        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { Swift.type(of: $0) })
+        let key = BindingKey(type, qualifier: qualifier, argumentType: arguments.map { _ in Arguments.self })
         do {
             let binding = try scopedBinding(for: key, scopeType: ObjectIdentifier(Kind.self))
             if binding.lifetime.isRoot {

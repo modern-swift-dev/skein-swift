@@ -24,7 +24,7 @@ Validated construction uses binding-owned roots and `try await SkeinApplication(
 
 ## Typed assisted factories
 
-Use an assisted factory when construction needs one runtime value. The argument type is part of the binding identity, so ordinary and multiple assisted factories for the same service and qualifier can coexist. Assisted bindings are factories and can only be resolved at a call site, not from another provider.
+Use an assisted factory when construction needs one runtime value. The static argument type at the call site is part of the binding identity, so ordinary and multiple assisted factories for the same service and qualifier can coexist. Assisted bindings are factories and can only be resolved at a call site, not from another provider.
 
 ```swift
 struct UserID: Hashable { let value: String }
@@ -40,6 +40,8 @@ let features = module {
 let application = try SkeinApplication { features }
 let presenter: UserPresenter = try application.get(arguments: UserID(value: "42"))
 ```
+
+A subclass value passed through a base-class variable selects the factory registered for that base class. Optional arguments retain their optional type, including when the value is `nil`.
 
 The unprefixed factory and resolution APIs are MainActor-isolated. A closure-based assisted provider must spell `provider:` explicitly; a constructor-based assisted factory spells `using:`.
 
