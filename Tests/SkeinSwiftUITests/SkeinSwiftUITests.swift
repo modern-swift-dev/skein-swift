@@ -1,5 +1,4 @@
-#if canImport(AppKit)
-import AppKit
+#if canImport(AppKit) || (canImport(UIKit) && !os(watchOS))
 import Skein
 import SkeinSwiftUI
 import SwiftUI
@@ -9,7 +8,7 @@ final class SkeinSwiftUITests: XCTestCase {
     @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
     @MainActor func testMissingEnvironmentIsRepresentedAsTypedFailure() {
         let appeared = expectation(description: "view appeared")
-        let host = NSHostingController(rootView: ProbeView { model, result in
+        let host = TestViewHost(rootView: ProbeView { model, result in
             XCTAssertNil(model)
             guard case let .failure(error)? = result else {
                 XCTFail("Expected a retained failure")
@@ -18,14 +17,15 @@ final class SkeinSwiftUITests: XCTestCase {
             XCTAssertEqual(error as? SkeinSwiftUIError, .missingApplication)
             appeared.fulfill()
         })
-        host.view.layoutSubtreeIfNeeded()
+        defer { host.close() }
+        host.layout()
         wait(for: [appeared], timeout: 1)
     }
 
     @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
     @MainActor func testAssistedInitializerCanRetainMissingEnvironmentFailure() {
         let appeared = expectation(description: "view appeared")
-        let host = NSHostingController(rootView: AssistedProbeView(arguments: 42) { model, result in
+        let host = TestViewHost(rootView: AssistedProbeView(arguments: 42) { model, result in
             XCTAssertNil(model)
             guard case let .failure(error)? = result else {
                 XCTFail("Expected a retained failure")
@@ -34,7 +34,8 @@ final class SkeinSwiftUITests: XCTestCase {
             XCTAssertEqual(error as? SkeinSwiftUIError, .missingApplication)
             appeared.fulfill()
         })
-        host.view.layoutSubtreeIfNeeded()
+        defer { host.close() }
+        host.layout()
         wait(for: [appeared], timeout: 1)
     }
 
@@ -62,7 +63,7 @@ final class SkeinSwiftUITests: XCTestCase {
         }
         let appeared = expectation(description: "view appeared")
         appeared.expectedFulfillmentCount = 1
-        let host = NSHostingController(
+        let host = TestViewHost(
             rootView: AssistedProbeView(arguments: 42) { model, result in
                 XCTAssertEqual(model?.value, 42)
                 guard case let .success(resolved)? = result else {
@@ -74,7 +75,8 @@ final class SkeinSwiftUITests: XCTestCase {
             }
             .skeinApplication(application)
         )
-        host.view.layoutSubtreeIfNeeded()
+        defer { host.close() }
+        host.layout()
         wait(for: [appeared], timeout: 1)
     }
 
@@ -82,7 +84,7 @@ final class SkeinSwiftUITests: XCTestCase {
     @MainActor func testExplicitInstanceNeedsNoApplication() {
         let model = TestModel(value: 84)
         let appeared = expectation(description: "view appeared")
-        let host = NSHostingController(
+        let host = TestViewHost(
             rootView: ExplicitProbeView(model: model) { resolved, result in
                 XCTAssertTrue(resolved === model)
                 guard case let .success(retained)? = result else {
@@ -92,7 +94,8 @@ final class SkeinSwiftUITests: XCTestCase {
                 appeared.fulfill()
             }
         )
-        host.view.layoutSubtreeIfNeeded()
+        defer { host.close() }
+        host.layout()
         wait(for: [appeared], timeout: 1)
     }
 
@@ -101,17 +104,22 @@ final class SkeinSwiftUITests: XCTestCase {
         let model = TestModel(value: 1)
         let appeared = expectation(description: "view appeared")
         let changed = expectation(description: "model change observed")
-        let host = NSHostingController(
+        let host = TestViewHost(
             rootView: ObservationProbeView(model: model) { value in
-                if value == 1 { appeared.fulfill() }
-                if value == 2 { changed.fulfill() }
+                if value == 1 {
+                    appeared.fulfill()
+                }
+                if value == 2 {
+                    changed.fulfill()
+                }
             }
         )
-        host.view.layoutSubtreeIfNeeded()
+        defer { host.close() }
+        host.layout()
         wait(for: [appeared], timeout: 1)
 
         model.value = 2
-        host.view.layoutSubtreeIfNeeded()
+        host.layout()
         wait(for: [changed], timeout: 1)
     }
 }
@@ -154,7 +162,6 @@ final class SkeinSwiftUITests: XCTestCase {
         Color.clear.onAppear { inspect(model, $model) }
     }
 }
-
 
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct ExplicitProbeView: View {
     @SkeinStateObject<TestModel> private var model: TestModel?
