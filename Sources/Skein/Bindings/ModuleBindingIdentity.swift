@@ -19,18 +19,17 @@ public extension Module {
     /// - Parameter overlay: The module whose matching bindings take precedence.
     /// - Returns: A module containing retained base bindings followed by overlay bindings.
     func overriding(_ overlay: Module) -> Module {
-        let baseIdentities = bindings.map(ModuleBindingIdentity.init)
-        let overlayIdentities = overlay.bindings.map(ModuleBindingIdentity.init)
+        let baseIdentities = Set(bindings.lazy.map(ModuleBindingIdentity.init))
+        let overlayIdentities = Set(overlay.bindings.lazy.map(ModuleBindingIdentity.init))
 
-        guard Set(baseIdentities).count == baseIdentities.count,
-              Set(overlayIdentities).count == overlayIdentities.count else {
+        guard baseIdentities.count == bindings.count,
+              overlayIdentities.count == overlay.bindings.count else {
             // Preserve invalid input so ordinary container validation still
             // reports duplicates within either source module.
             return Module(bindings: bindings + overlay.bindings)
         }
 
-        let replaced = Set(overlayIdentities)
-        let retainedBase = bindings.filter { !replaced.contains(ModuleBindingIdentity($0)) }
+        let retainedBase = bindings.filter { !overlayIdentities.contains(ModuleBindingIdentity($0)) }
         return Module(bindings: retainedBase + overlay.bindings)
     }
 }
