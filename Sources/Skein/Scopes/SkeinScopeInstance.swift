@@ -203,7 +203,17 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
         key: BindingKey, binding: Binding,
         provider: @escaping @Sendable () async throws -> Any
     ) async throws -> Any {
-        try await container.withAsyncResolution(
+        // An inherited creation trace must not reject an already cached value.
+        if let cached = try lock.withLock({ () throws -> Container.CachedInstance? in
+            try ensureActiveLocked()
+            guard case let .resolved(cached) = asyncInstances[key] else {
+                return nil
+            }
+            return cached
+        }) {
+            return cached.value
+        }
+        return try await container.withAsyncResolution(
             of: key, context: ObjectIdentifier(self), source: binding.source
         ) {
             let captured = ResolutionContext.entries

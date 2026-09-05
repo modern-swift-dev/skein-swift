@@ -521,6 +521,17 @@ package final class Container: Resolver, @unchecked Sendable {
             try lock.withLock { try ensureActive() }
             return value
         }
+        // Cached values cannot introduce a creation cycle. Check before extending
+        // the task-local trace, which may outlive the provider in a child task.
+        if let cached = try lock.withLock({ () throws -> CachedInstance? in
+            try ensureActive()
+            guard case let .resolved(cached) = asyncSingletons[key] else {
+                return nil
+            }
+            return cached
+        }) {
+            return cached.value
+        }
         return try await withAsyncResolution(of: key, context: ObjectIdentifier(self), source: binding.source) {
             let captured = ResolutionContext.entries
             let selected: AsyncSingletonState = try lock.withLock {
