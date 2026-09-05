@@ -669,7 +669,9 @@ package final class Container: Resolver, @unchecked Sendable {
     /// - Throws: A graph configuration error such as a missing binding, invalid lifetime, or cycle.
     package func validateGraph() throws -> GraphValidationReport {
         var opaque: [OpaqueBinding] = []
-        var opaqueNodes: Set<ValidationNodeIdentity> = []
+        var completed: Set<ValidationNodeIdentity> = []
+        var active: Set<ValidationNodeIdentity> = []
+        var path: [BindingKey] = []
         for root in declaredRoots {
             guard root.lifetime.isRoot else {
                 throw SkeinError.scopedBindingCannotBeRoot(
@@ -681,7 +683,10 @@ package final class Container: Resolver, @unchecked Sendable {
                     type: root.key.typeName, qualifier: root.key.qualifier?.description
                 )
             }
-            try validate(root.key, binding: root, parent: nil, path: [], active: [], opaque: &opaque, opaqueNodes: &opaqueNodes)
+            try validate(
+                root.key, binding: root, parent: nil, path: &path, active: &active,
+                completed: &completed, opaque: &opaque
+            )
         }
         return GraphValidationReport(opaqueBindings: opaque)
     }
@@ -930,59 +935,66 @@ package final class Container: Resolver, @unchecked Sendable {
     }
 
     private func validate(
-        _ key: BindingKey, binding: Binding? = nil, parent: Binding?, path: [String],
-        active: Set<ValidationNodeIdentity>, opaque: inout [OpaqueBinding],
-        opaqueNodes: inout Set<ValidationNodeIdentity>
+        _ key: BindingKey, binding: Binding? = nil, parent: Binding?, path: inout [BindingKey],
+        active: inout Set<ValidationNodeIdentity>, completed: inout Set<ValidationNodeIdentity>,
+        opaque: inout [OpaqueBinding]
     ) throws {
+        path.append(key)
+        defer { path.removeLast() }
         let candidates = bindings[key] ?? []
         guard let binding = binding ?? validationBinding(from: candidates, parent: parent) else {
             throw GraphValidationError.missingBinding(
-                type: key.typeName, qualifier: key.qualifier?.description, path: path + [key.description]
+                type: key.typeName, qualifier: key.qualifier?.description, path: path.map(\.description)
             )
         }
-        let nextPath = path + [key.description]
         let identity = ValidationNodeIdentity(key: key, lifetime: binding.lifetime)
         if active.contains(identity) {
-            throw GraphValidationError.circularDependency(path: nextPath)
+            throw GraphValidationError.circularDependency(path: path.map(\.description))
         }
         if let parent {
             if parent.lifetime.isRoot, case let .scoped(_, scope) = binding.lifetime {
-                throw GraphValidationError.rootDependsOnScopedBinding(path: nextPath, scope: scope)
+                throw GraphValidationError.rootDependsOnScopedBinding(path: path.map(\.description), scope: scope)
             }
             if case let .scoped(fromType, fromName) = parent.lifetime,
                case let .scoped(toType, toName) = binding.lifetime, fromType != toType {
-                throw GraphValidationError.crossScopeDependency(path: nextPath, from: fromName, to: toName)
+                throw GraphValidationError.crossScopeDependency(path: path.map(\.description), from: fromName, to: toName)
             }
             if !Self.canDepend(parent.isolation, on: binding.isolation) {
                 throw GraphValidationError.isolationMismatch(
-                    path: nextPath,
+                    path: path.map(\.description),
                     parent: parent.isolation.description,
                     dependency: binding.isolation.description
                 )
             }
         }
-        guard let dependencies = binding.dependencies else {
-            if opaqueNodes.insert(identity).inserted {
-                opaque.append(.init(
-                    type: key.typeName,
-                    qualifier: key.qualifier?.description,
-                    registration: binding.source,
-                    isolation: binding.isolation.description
-                ))
-            }
+        // Every incoming edge must pass lifetime and isolation checks, even when
+        // another root has already validated this binding's dependency graph.
+        guard !completed.contains(identity) else {
             return
         }
-        var nextActive = active; nextActive.insert(identity)
+        guard let dependencies = binding.dependencies else {
+            opaque.append(.init(
+                type: key.typeName,
+                qualifier: key.qualifier?.description,
+                registration: binding.source,
+                isolation: binding.isolation.description
+            ))
+            completed.insert(identity)
+            return
+        }
+        active.insert(identity)
+        defer { active.remove(identity) }
         for dependency in dependencies {
             try validate(
                 dependency.key,
                 parent: binding,
-                path: nextPath,
-                active: nextActive,
-                opaque: &opaque,
-                opaqueNodes: &opaqueNodes
+                path: &path,
+                active: &active,
+                completed: &completed,
+                opaque: &opaque
             )
         }
+        completed.insert(identity)
     }
 
     private func validationBinding(from candidates: [Binding], parent: Binding?) -> Binding? {
