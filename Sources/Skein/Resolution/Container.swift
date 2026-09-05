@@ -722,12 +722,13 @@ package final class Container: Resolver, @unchecked Sendable {
     /// Closes all scopes and disposes completed singleton instances.
     ///
     /// Closing is idempotent. Concurrent callers wait for the first close operation to finish.
+    /// Cached references are released as each instance finishes disposal.
     package func close() async {
         let owner = ObjectIdentifier(self)
         if DisposalContext.owners.contains(owner) {
             return
         }
-        let work: (scopes: [any ScopeStorage], inFlight: [InFlight])? = lock.withLock {
+        guard var work = lock.withLock({ () -> (scopes: [any ScopeStorage], inFlight: [InFlight])? in
             guard case .active = state else {
                 return nil
             }
@@ -740,8 +741,7 @@ package final class Container: Resolver, @unchecked Sendable {
                 return value
             }
             return (activeScopes, tasks)
-        }
-        guard let work else {
+        }) else {
             await waitUntilClosed(); return
         }
 
@@ -749,21 +749,24 @@ package final class Container: Resolver, @unchecked Sendable {
             for scope in work.scopes {
                 await scope.close()
             }
-            await withTaskGroup(of: Void.self) { group in
-                for inFlight in work.inFlight {
-                    group.addTask {
-                        _ = try? await inFlight.task.value
-                    }
-                }
+            work.scopes.removeAll()
+            // Creations already run concurrently. Drop each task handle after
+            // joining so completed tasks do not retain values during disposal.
+            while let inFlight = work.inFlight.popLast() {
+                _ = try? await inFlight.task.value
             }
-            let completed = lock.withLock { completedInstances.reversed() }
-            for instance in completed {
+            var completed = lock.withLock {
+                singletons.removeAll()
+                asyncSingletons.removeAll()
+                defer { completedInstances.removeAll() }
+                return completedInstances
+            }
+            while let instance = completed.popLast() {
                 await dispose(instance.value, using: instance.disposer)
             }
         }
 
         let waiters = lock.withLock {
-            singletons.removeAll(); asyncSingletons.removeAll(); completedInstances.removeAll()
             asyncWaitEdges.removeAll()
             scopes.removeAll(); state = .closed
             defer { closeWaiters.removeAll() }

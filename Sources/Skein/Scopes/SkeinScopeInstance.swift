@@ -288,12 +288,13 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
     ///
     /// Closing is idempotent. Concurrent callers wait for the first close operation to finish,
     /// and subsequent resolution attempts, including inherited root bindings, fail because the scope is closed.
+    /// Cached references are released as each instance finishes disposal.
     public func close() async {
         let owner = ObjectIdentifier(self)
         if DisposalContext.owners.contains(owner) {
             return
         }
-        let inFlight: [InFlight]? = lock.withLock {
+        guard var inFlight = lock.withLock({ () -> [InFlight]? in
             guard case .active = state else {
                 return nil
             }
@@ -304,23 +305,26 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
                 }
                 return value
             }
-        }
-        guard let inFlight else {
+        }) else {
             await waitUntilClosed(); return
         }
 
         await DisposalContext.$owners.withValue(DisposalContext.owners.union([owner])) {
-            for pending in inFlight {
+            while let pending = inFlight.popLast() {
                 _ = try? await pending.task.value
             }
-            let completed = lock.withLock { completedInstances.reversed() }
-            for instance in completed {
+            var completed = lock.withLock {
+                instances.removeAll()
+                asyncInstances.removeAll()
+                defer { completedInstances.removeAll() }
+                return completedInstances
+            }
+            while let instance = completed.popLast() {
                 await dispose(instance.value, using: instance.disposer)
             }
         }
         container.detachScope(identity)
         let waiters = lock.withLock {
-            instances.removeAll(); asyncInstances.removeAll(); completedInstances.removeAll()
             state = .closed
             defer { closeWaiters.removeAll() }
             return closeWaiters

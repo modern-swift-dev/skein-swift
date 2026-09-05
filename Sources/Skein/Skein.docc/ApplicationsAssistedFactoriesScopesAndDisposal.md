@@ -71,7 +71,7 @@ Only one active `(scope type, ID)` pair is allowed; closing it permits a replace
 
 ## Async disposal
 
-`single` and `scoped` accept MainActor asynchronous `onClose` callbacks. Their `nonisolated...` and `actor...` counterparts retain the selected isolation. `close()` is async, idempotent, and disposes successfully created values once in reverse creation order.
+`single` and `scoped` accept MainActor asynchronous `onClose` callbacks. Their `nonisolated...` and `actor...` counterparts retain the selected isolation. `close()` is async, idempotent, and disposes successfully created values once in reverse creation order. The owning application or scope releases each cached reference after its disposal finishes, so disposed values need not remain in memory while later callbacks run. References retained by callers or other services still determine when a value is deallocated.
 
 ```swift
 final class Connection {

@@ -174,6 +174,7 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
     /// Closes the application and awaits disposal of its cached services.
     ///
     /// Calling this method more than once has no additional effect.
+    /// Cached references are released as each instance finishes disposal.
     public func close() async {
         await container.close()
     }
