@@ -1,15 +1,29 @@
 /// Identifies a registration by service, qualifier, and assisted argument type.
 package struct BindingKey: Hashable, Sendable {
+    private let serviceType: Any.Type
+    private let assistedArgumentType: Any.Type?
+
     /// The registered service type identity.
-    package let type: ObjectIdentifier
+    package var type: ObjectIdentifier {
+        ObjectIdentifier(serviceType)
+    }
+
     /// The registered service type name used in diagnostics.
-    package let typeName: String
+    package var typeName: String {
+        String(reflecting: serviceType)
+    }
+
     /// The qualifier identity, if the registration is qualified.
     package let qualifier: QualifierKey?
     /// The assisted argument type identity, if required.
-    package let argumentType: ObjectIdentifier?
+    package var argumentType: ObjectIdentifier? {
+        assistedArgumentType.map(ObjectIdentifier.init)
+    }
+
     /// The assisted argument type name used in diagnostics, if required.
-    package let argumentTypeName: String?
+    package var argumentTypeName: String? {
+        assistedArgumentType.map { String(reflecting: $0) }
+    }
 
     /// Creates a binding key from a statically known service type.
     ///
@@ -22,11 +36,7 @@ package struct BindingKey: Hashable, Sendable {
         qualifier: (any SkeinQualifier)?,
         argumentType: Any.Type? = nil
     ) {
-        self.type = ObjectIdentifier(type)
-        self.typeName = String(reflecting: type)
-        self.qualifier = qualifier.map(QualifierKey.init)
-        self.argumentType = argumentType.map(ObjectIdentifier.init)
-        self.argumentTypeName = argumentType.map { String(reflecting: $0) }
+        self.init(anyType: type, qualifier: qualifier, argumentType: argumentType)
     }
 
     /// Creates a binding key from a type-erased service type.
@@ -40,11 +50,23 @@ package struct BindingKey: Hashable, Sendable {
         qualifier: (any SkeinQualifier)? = nil,
         argumentType: Any.Type? = nil
     ) {
-        type = ObjectIdentifier(anyType)
-        typeName = String(reflecting: anyType)
+        serviceType = anyType
         self.qualifier = qualifier.map(QualifierKey.init)
-        self.argumentType = argumentType.map(ObjectIdentifier.init)
-        argumentTypeName = argumentType.map { String(reflecting: $0) }
+        assistedArgumentType = argumentType
+    }
+
+    /// Compares lookup identities without constructing diagnostic names.
+    package static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.type == rhs.type && lhs.qualifier == rhs.qualifier && lhs.argumentType == rhs.argumentType
+    }
+
+    /// Hashes the service, qualifier, and assisted argument identities.
+    ///
+    /// - Parameter hasher: The hasher receiving the lookup identity.
+    package func hash(into hasher: inout Hasher) {
+        hasher.combine(type)
+        hasher.combine(qualifier)
+        hasher.combine(argumentType)
     }
 
     /// A diagnostic description of the service, argument, and qualifier.

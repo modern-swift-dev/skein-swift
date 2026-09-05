@@ -77,7 +77,7 @@ package final class Container: Resolver, @unchecked Sendable {
                         qualifier: binding.key.qualifier?.description
                     )
                 }
-                if binding.rootPolicy == .eager, binding.key.argumentTypeName != nil {
+                if binding.rootPolicy == .eager, binding.key.argumentType != nil {
                     throw SkeinError.eagerAssistedRoot(
                         type: binding.key.typeName,
                         qualifier: binding.key.qualifier?.description
@@ -676,7 +676,7 @@ package final class Container: Resolver, @unchecked Sendable {
                     type: root.key.typeName, qualifier: root.key.qualifier?.description
                 )
             }
-            if root.rootPolicy == .eager, root.key.argumentTypeName != nil {
+            if root.rootPolicy == .eager, root.key.argumentType != nil {
                 throw SkeinError.eagerAssistedRoot(
                     type: root.key.typeName, qualifier: root.key.qualifier?.description
                 )
