@@ -58,12 +58,16 @@ import SwiftUI
 
     /// Resolves an ordinary Skein binding.
     private init(resolving qualifier: (any SkeinQualifier)?) {
+        #if DEBUG
         configuration = Configuration(
             source: .resolution,
             qualifier: qualifier.map(QualifierSnapshot.init),
             argumentsDescription: nil,
             argumentsType: nil
         )
+        #else
+        configuration = Configuration()
+        #endif
         usesApplication = true
         resolve = { application in
             try application.get(Model.self, qualifier: qualifier)
@@ -76,12 +80,16 @@ import SwiftUI
         resolving arguments: Arguments,
         qualifier: (any SkeinQualifier)? = nil
     ) {
+        #if DEBUG
         configuration = Configuration(
             source: .resolution,
             qualifier: qualifier.map(QualifierSnapshot.init),
             argumentsDescription: String(reflecting: arguments),
             argumentsType: ObjectIdentifier(Arguments.self)
         )
+        #else
+        configuration = Configuration()
+        #endif
         usesApplication = true
         resolve = { application in
             try application.get(Model.self, arguments: arguments, qualifier: qualifier)
@@ -90,12 +98,16 @@ import SwiftUI
     }
 
     private init(instance model: Model) {
+        #if DEBUG
         let configuration = Configuration(
             source: .instance(ObjectIdentifier(model)),
             qualifier: nil,
             argumentsDescription: nil,
             argumentsType: nil
         )
+        #else
+        let configuration = Configuration()
+        #endif
         self.configuration = configuration
         usesApplication = false
         resolve = { _ in model }
@@ -177,8 +189,10 @@ import SwiftUI
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private final class Storage<Model: ObservableObject>: @preconcurrency ObservableObject {
     let objectWillChange = ObservableObjectPublisher()
     private(set) var result: Result<Model, Error>?
+    #if DEBUG
     private var initialApplication: ObjectIdentifier?
     private var initialConfiguration: Configuration?
+    #endif
     private var modelObservation: AnyCancellable?
 
     init(
@@ -186,7 +200,9 @@ import SwiftUI
         configuration: Configuration? = nil
     ) {
         self.result = result
+        #if DEBUG
         initialConfiguration = configuration
+        #endif
         if case let .success(model)? = result {
             observe(model)
         }
@@ -198,12 +214,16 @@ import SwiftUI
         resolve: (SkeinApplication) throws -> Model
     ) {
         if result != nil {
+            #if DEBUG
             diagnoseChangedInputs(application: application, configuration: configuration)
+            #endif
             return
         }
 
+        #if DEBUG
         initialApplication = application.map(ObjectIdentifier.init)
         initialConfiguration = configuration
+        #endif
         guard let application else {
             result = .failure(SkeinSwiftUIError.missingApplication)
             return
@@ -223,24 +243,27 @@ import SwiftUI
         }
     }
 
+    #if DEBUG
     private func diagnoseChangedInputs(application: SkeinApplication?, configuration: Configuration) {
         guard initialApplication != application.map(ObjectIdentifier.init) || initialConfiguration != configuration else {
             return
         }
-        #if DEBUG
         debugPrint("SkeinStateObject retained its original resolution because its Skein application or arguments changed. Use .id(...) to replace it.")
-        #endif
     }
+    #endif
 }
 
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct Configuration: Equatable {
+    #if DEBUG
     let source: Source
     let qualifier: QualifierSnapshot?
     let argumentsDescription: String?
     let argumentsType: ObjectIdentifier?
+    #endif
 
 }
 
+#if DEBUG
 @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private enum Source: Equatable {
     case resolution
     case instance(ObjectIdentifier)
@@ -255,4 +278,5 @@ import SwiftUI
         value = String(reflecting: qualifier)
     }
 }
+#endif
 #endif
