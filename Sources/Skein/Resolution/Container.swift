@@ -29,6 +29,11 @@ package final class Container: Resolver, @unchecked Sendable {
         case resolved(CachedInstance)
     }
 
+    private struct RegisteredScope {
+        let scope: any ScopeStorage
+        let order: UInt64
+    }
+
     private let lock = NSRecursiveLock()
     private let bindings: [BindingKey: [Binding]]
     private let declaredRoots: [Binding]
@@ -36,8 +41,8 @@ package final class Container: Resolver, @unchecked Sendable {
     private var asyncSingletons: [BindingKey: AsyncSingletonState] = [:]
     private var completedInstances: [CachedInstance] = []
     private var asyncWaitEdges: [AsyncCreationIdentity: Set<AsyncCreationIdentity>] = [:]
-    private var scopes: [ScopeIdentity: any ScopeStorage] = [:]
-    private var scopeCreationOrder: [ScopeIdentity] = []
+    private var scopes: [ScopeIdentity: RegisteredScope] = [:]
+    private var nextScopeOrder: UInt64 = 0
     private var state: State = .active
     private var closeWaiters: [() -> Void] = []
 
@@ -606,8 +611,8 @@ package final class Container: Resolver, @unchecked Sendable {
                 throw SkeinError.duplicateScope(scope: identity.typeName, id: identity.idDescription)
             }
             let scope = SkeinScopeInstance<Kind>(container: self, identity: identity)
-            scopes[identity] = scope
-            scopeCreationOrder.append(identity)
+            scopes[identity] = RegisteredScope(scope: scope, order: nextScopeOrder)
+            nextScopeOrder += 1
             return scope
         }
     }
@@ -647,8 +652,8 @@ package final class Container: Resolver, @unchecked Sendable {
                 seededValue: service,
                 seededDisposer: binding.disposer
             )
-            scopes[identity] = scope
-            scopeCreationOrder.append(identity)
+            scopes[identity] = RegisteredScope(scope: scope, order: nextScopeOrder)
+            nextScopeOrder += 1
             return scope
         }
     }
@@ -658,8 +663,7 @@ package final class Container: Resolver, @unchecked Sendable {
     /// - Parameter identity: The identity of the scope to remove.
     package func detachScope(_ identity: ScopeIdentity) {
         lock.withLock {
-            scopes.removeValue(forKey: identity)
-            scopeCreationOrder.removeAll { $0 == identity }
+            _ = scopes.removeValue(forKey: identity)
         }
     }
 
@@ -717,7 +721,7 @@ package final class Container: Resolver, @unchecked Sendable {
                 return nil
             }
             state = .closing
-            let activeScopes = scopeCreationOrder.reversed().compactMap { scopes[$0] }
+            let activeScopes = scopes.values.sorted { $0.order > $1.order }.map(\.scope)
             let tasks = asyncSingletons.values.compactMap { state -> InFlight? in
                 guard case let .inFlight(value) = state else {
                     return nil
@@ -750,7 +754,7 @@ package final class Container: Resolver, @unchecked Sendable {
         let waiters = lock.withLock {
             singletons.removeAll(); asyncSingletons.removeAll(); completedInstances.removeAll()
             asyncWaitEdges.removeAll()
-            scopes.removeAll(); scopeCreationOrder.removeAll(); state = .closed
+            scopes.removeAll(); state = .closed
             defer { closeWaiters.removeAll() }
             return closeWaiters
         }
