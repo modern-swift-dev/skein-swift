@@ -60,6 +60,8 @@ All setup and resolution operations that can fail use Swift error handling, so c
 
 ## Documentation
 
+The [central documentation repository](https://github.com/modern-swift-dev/docs) owns Astro, the shared theme, and website/API generation. It builds from `main` daily and on manual runs. Edit page Markdown in `Documentation/Site/` and keep DocC catalogs beside the module sources. See the [docs README](https://github.com/modern-swift-dev/docs/blob/main/README.md) for local build and preview commands. Do not commit generated HTML to this repository.
+
 Start with the hosted guides:
 
 - [Overview](https://modern-swift-dev.github.io/docs/skein-swift/)
