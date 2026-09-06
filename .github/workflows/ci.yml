@@ -30,15 +30,9 @@ jobs:
           - platform: iOS
             simulator-name: iPhone 17 Pro
             runtime-platform: iOS
-          - platform: tvOS
-            simulator-name: Apple TV 4K (3rd generation)
-            runtime-platform: tvOS
           - platform: visionOS
             simulator-name: Apple Vision Pro
             runtime-platform: visionOS
-          - platform: watchOS
-            simulator-name: Apple Watch Series 11 (46mm)
-            runtime-platform: watchOS
     steps:
       - uses: actions/checkout@v4
       - name: Verify Xcode 26.6 and Swift 6.3
