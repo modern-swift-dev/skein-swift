@@ -1,22 +1,23 @@
-@testable import Skein
 @preconcurrency import XCTest
+@testable import Skein
 
-@globalActor private actor RuntimeTestActor {
+@globalActor
+private actor RuntimeTestActor {
     static let shared = RuntimeTestActor()
 }
 
-@RuntimeTestActor private final class RuntimeActorValue: @unchecked Sendable {
+@RuntimeTestActor
+private final class RuntimeActorValue: @unchecked Sendable {
     static var creations = 0
-    init() {
-        Self.creations += 1
-    }
+    init() { Self.creations += 1 }
 }
 
 private struct RuntimeCycleA: Sendable {}
 private struct RuntimeCycleB: Sendable {}
 private enum RuntimeScope: SkeinScope {}
 
-@globalActor private actor RuntimeOtherActor {
+@globalActor
+private actor RuntimeOtherActor {
     static let shared = RuntimeOtherActor()
 }
 
@@ -27,16 +28,12 @@ private actor RuntimeGate {
 
     func wait() async {
         arrivals += 1
-        guard !isOpen else {
-            return
-        }
+        guard !isOpen else { return }
         await withCheckedContinuation { waiters.append($0) }
     }
 
     func waitForArrivals(_ expected: Int) async {
-        while arrivals < expected {
-            await Task.yield()
-        }
+        while arrivals < expected { await Task.yield() }
     }
 
     func open() {
@@ -49,54 +46,39 @@ private actor RuntimeGate {
 
 private actor RuntimeRecorder {
     private(set) var values: [String] = []
-    func append(_ value: String) {
-        values.append(value)
-    }
+    func append(_ value: String) { values.append(value) }
 }
 
 private actor RuntimeSkeinErrorRecorder {
     private(set) var values: [SkeinError] = []
-    func append(_ value: SkeinError) {
-        values.append(value)
-    }
+    func append(_ value: SkeinError) { values.append(value) }
 }
 
 private final class RuntimeLockedLog: @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [String] = []
 
-    func append(_ value: String) {
-        lock.withLock { storage.append(value) }
-    }
-
-    var values: [String] {
-        lock.withLock { storage }
-    }
+    func append(_ value: String) { lock.withLock { storage.append(value) } }
+    var values: [String] { lock.withLock { storage } }
 }
 
 private final class RuntimeLockedCount: @unchecked Sendable {
     private let lock = NSLock()
     private var storage = 0
 
-    func increment() {
-        lock.withLock { storage += 1 }
-    }
-
-    var value: Int {
-        lock.withLock { storage }
-    }
+    func increment() { lock.withLock { storage += 1 } }
+    var value: Int { lock.withLock { storage } }
 }
 
 private struct RuntimeRetryValue: Sendable {}
 
-@RuntimeTestActor private final class RuntimeRetryState: @unchecked Sendable {
+@RuntimeTestActor
+private final class RuntimeRetryState: @unchecked Sendable {
     private(set) var attempts = 0
 
     func make() throws -> RuntimeRetryValue {
         attempts += 1
-        if attempts == 1 {
-            throw RuntimeTestFailure.expected
-        }
+        if attempts == 1 { throw RuntimeTestFailure.expected }
         return RuntimeRetryValue()
     }
 }
@@ -113,7 +95,6 @@ private struct RuntimeMissingDependency {}
 private struct RuntimeNeedsMissing {
     init(_ dependency: RuntimeMissingDependency) {}
 }
-
 private struct RuntimeEagerMain {}
 private struct RuntimeEagerActor: Sendable {}
 private struct RuntimeEagerNonisolated: Sendable {}
@@ -125,7 +106,8 @@ private struct RuntimeIndependentScopeB: Sendable {}
 private enum RuntimeIndependentCycleScope: SkeinScope {}
 
 final class RuntimeLifecycleRedesignTests: XCTestCase {
-    @MainActor func testMainActorGetAcceptsMainActorAndNonisolatedBindings() throws {
+    @MainActor
+    func testMainActorGetAcceptsMainActorAndNonisolatedBindings() async throws {
         let application = try SkeinApplication {
             module {
                 instance("main")
@@ -147,7 +129,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testActorGetResolvesEveryIsolationKindAndCoalescesCustomSingle() async throws {
+    @MainActor
+    func testActorGetResolvesEveryIsolationKindAndCoalescesCustomSingle() async throws {
         let initialCreations = await RuntimeActorValue.creations
         let application = try SkeinApplication {
             module {
@@ -170,16 +153,14 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
             of: ObjectIdentifier.self,
             returning: [ObjectIdentifier].self
         ) { group in
-            for _ in 0 ..< 20 {
+            for _ in 0..<20 {
                 group.addTask {
                     let value: RuntimeActorValue = try await application.actorGet()
                     return ObjectIdentifier(value)
                 }
             }
             var values: [ObjectIdentifier] = []
-            for try await value in group {
-                values.append(value)
-            }
+            for try await value in group { values.append(value) }
             return values
         }
         XCTAssertEqual(Set(identities).count, 1)
@@ -188,7 +169,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testTaskLocalCycleDetectionCrossesCustomActorTasks() async throws {
+    @MainActor
+    func testTaskLocalCycleDetectionCrossesCustomActorTasks() async throws {
         let application = try SkeinApplication {
             module {
                 actorSingle(
@@ -222,7 +204,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testIndependentlyStartedCustomRootCyclesFailInsteadOfDeadlocking() async throws {
+    @MainActor
+    func testIndependentlyStartedCustomRootCyclesFailInsteadOfDeadlocking() async throws {
         let gateA = RuntimeGate()
         let gateB = RuntimeGate()
         let errors = RuntimeSkeinErrorRecorder()
@@ -272,15 +255,14 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         let recorded = await errors.values
         XCTAssertEqual(recorded.count, 2)
         XCTAssertTrue(recorded.allSatisfy {
-            if case .circularDependency = $0 {
-                return true
-            }
+            if case .circularDependency = $0 { return true }
             return false
         })
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testIndependentlyStartedCustomScopedCyclesFailInsteadOfDeadlocking() async throws {
+    @MainActor
+    func testIndependentlyStartedCustomScopedCyclesFailInsteadOfDeadlocking() async throws {
         let gateA = RuntimeGate()
         let gateB = RuntimeGate()
         let errors = RuntimeSkeinErrorRecorder()
@@ -333,14 +315,13 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         let recorded = await errors.values
         XCTAssertEqual(recorded.count, 2)
         XCTAssertTrue(recorded.allSatisfy {
-            if case .circularDependency = $0 {
-                return true
-            }
+            if case .circularDependency = $0 { return true }
             return false
         })
     }
 
-    @MainActor func testDeclaredRootsValidateBeforeEagerExecution() async throws {
+    @MainActor
+    func testDeclaredRootsValidateBeforeEagerExecution() async throws {
         var eagerCreations = 0
         let application = try await SkeinApplication(validation: .declaredRoots) {
             module {
@@ -360,7 +341,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testFailedValidatedGlobalStartupCanBeRetried() async throws {
+    @MainActor
+    func testFailedValidatedGlobalStartupCanBeRetried() async throws {
         stopSkein()
         defer { stopSkein() }
 
@@ -388,7 +370,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testCustomActorScopedBindingCachesAndRejectsAfterClose() async throws {
+    @MainActor
+    func testCustomActorScopedBindingCachesAndRejectsAfterClose() async throws {
         let application = try SkeinApplication {
             module {
                 actorScoped(
@@ -416,7 +399,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testCustomActorSingletonRetriesAfterProviderFailure() async throws {
+    @MainActor
+    func testCustomActorSingletonRetriesAfterProviderFailure() async throws {
         let state = RuntimeRetryState()
         let application = try SkeinApplication {
             module {
@@ -441,7 +425,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testCancellingOneWaiterDoesNotCancelSharedSingletonCreation() async throws {
+    @MainActor
+    func testCancellingOneWaiterDoesNotCancelSharedSingletonCreation() async throws {
         let gate = RuntimeGate()
         let creations = RuntimeLockedCount()
         let application = try SkeinApplication {
@@ -461,9 +446,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         let cancelledWaiter = Task { try await application.actorGet(RuntimeCancelledValue.self) }
         await gate.waitForArrivals(1)
         let survivingWaiter = Task { try await application.actorGet(RuntimeCancelledValue.self) }
-        for _ in 0 ..< 10 {
-            await Task.yield()
-        }
+        for _ in 0..<10 { await Task.yield() }
         cancelledWaiter.cancel()
         await gate.open()
 
@@ -475,7 +458,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testCloseDuringRootCreationDisposesOnceAndRejectsWaiters() async throws {
+    @MainActor
+    func testCloseDuringRootCreationDisposesOnceAndRejectsWaiters() async throws {
         let gate = RuntimeGate()
         let disposals = RuntimeRecorder()
         let application = try SkeinApplication {
@@ -515,7 +499,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testCloseDuringScopeCreationDisposesOnceAndRejectsWaiters() async throws {
+    @MainActor
+    func testCloseDuringScopeCreationDisposesOnceAndRejectsWaiters() async throws {
         let gate = RuntimeGate()
         let disposals = RuntimeRecorder()
         let application = try SkeinApplication {
@@ -562,7 +547,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testDisposalUsesReverseProviderCompletionOrder() async throws {
+    @MainActor
+    func testDisposalUsesReverseProviderCompletionOrder() async throws {
         let gateA = RuntimeGate()
         let gateB = RuntimeGate()
         let disposals = RuntimeRecorder()
@@ -603,7 +589,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual(values, ["A", "B"])
     }
 
-    @MainActor func testEagerFactoryRunsAtStartupAndAgainForEveryLookup() async throws {
+    @MainActor
+    func testEagerFactoryRunsAtStartupAndAgainForEveryLookup() async throws {
         var creations = 0
         let application = try await SkeinApplication(validation: .declaredRoots) {
             module {
@@ -620,7 +607,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         XCTAssertEqual([first, second], [2, 3])
     }
 
-    @MainActor func testStructuralFailurePreventsAllEagerSideEffects() async throws {
+    @MainActor
+    func testStructuralFailurePreventsAllEagerSideEffects() async throws {
         var eagerCreations = 0
         do {
             _ = try await SkeinApplication(validation: .declaredRoots) {
@@ -642,7 +630,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testEagerRootsRunInDeclarationOrderAcrossIsolationKinds() async throws {
+    @MainActor
+    func testEagerRootsRunInDeclarationOrderAcrossIsolationKinds() async throws {
         let order = RuntimeLockedLog()
         _ = try await SkeinApplication(validation: .declaredRoots) {
             module {
@@ -668,7 +657,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testConcurrentValidatedStartIfNeededBuildsOnceAndHasOneOwner() async throws {
+    @MainActor
+    func testConcurrentValidatedStartIfNeededBuildsOnceAndHasOneOwner() async throws {
         stopSkein()
         defer { stopSkein() }
         let builders = RuntimeLockedCount()
@@ -676,7 +666,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         let gate = RuntimeGate()
 
         let results = try await withThrowingTaskGroup(of: Bool.self, returning: [Bool].self) { group in
-            for _ in 0 ..< 20 {
+            for _ in 0..<20 {
                 group.addTask {
                     try await startSkeinIfNeeded(validation: .declaredRoots) {
                         countedStartupModule(builders: builders, providers: providers, gate: gate)
@@ -686,20 +676,19 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
             await gate.waitForArrivals(1)
             await gate.open()
             var values: [Bool] = []
-            for try await value in group {
-                values.append(value)
-            }
+            for try await value in group { values.append(value) }
             return values
         }
 
         XCTAssertEqual(builders.value, 1)
         XCTAssertEqual(providers.value, 1)
-        XCTAssertEqual(results.filter(\.self).count, 1)
+        XCTAssertEqual(results.filter { $0 }.count, 1)
         XCTAssertTrue(isSkeinStarted)
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testStopDuringValidatedStartupPreventsPublication() async throws {
+    @MainActor
+    func testStopDuringValidatedStartupPreventsPublication() async throws {
         stopSkein()
         defer { stopSkein() }
         let gate = RuntimeGate()
@@ -734,7 +723,8 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
     }
 
     @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-    @MainActor func testCustomDisposerIsolationMismatchIsRejected() throws {
+    @MainActor
+    func testCustomDisposerIsolationMismatchIsRejected() async throws {
         XCTAssertThrowsError(
             try SkeinApplication {
                 module {
@@ -756,9 +746,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
 
 private func hasUnderlying(_ error: any Error, matching expected: SkeinError) -> Bool {
     guard let resolution = error as? SkeinResolutionError,
-          let underlying = resolution.underlying as? SkeinError else {
-        return false
-    }
+          let underlying = resolution.underlying as? SkeinError else { return false }
     return underlying == expected
 }
 
@@ -767,20 +755,14 @@ private func recordSkeinError(
     in recorder: RuntimeSkeinErrorRecorder
 ) async {
     guard let resolution = error as? SkeinResolutionError,
-          let underlying = resolution.underlying as? SkeinError else {
-        return
-    }
+          let underlying = resolution.underlying as? SkeinError else { return }
     await recorder.append(underlying)
 }
 
 private func hasScopeClosedUnderlying(_ error: any Error) -> Bool {
     guard let resolution = error as? SkeinResolutionError,
-          let underlying = resolution.underlying as? SkeinError else {
-        return false
-    }
-    if case .scopeClosed = underlying {
-        return true
-    }
+          let underlying = resolution.underlying as? SkeinError else { return false }
+    if case .scopeClosed = underlying { return true }
     return false
 }
 
@@ -821,7 +803,8 @@ private func waitUntilScopeIsClosed(
 }
 
 @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
-@MainActor private func countedStartupModule(
+@MainActor
+private func countedStartupModule(
     builders: RuntimeLockedCount,
     providers: RuntimeLockedCount,
     gate: RuntimeGate
