@@ -26,8 +26,9 @@ import XCTest
         XCTAssertEqual(try replacement.get(Int.self), 128)
         await application.close()
 
-        let expected = stride(from: 0, to: 128, by: 2).map(String.init)
-            + ["128"] + stride(from: 127, through: 1, by: -2).map(String.init)
+        let explicitlyClosed = stride(from: 0, to: 128, by: 2).map(String.init)
+        let closedByApplication = stride(from: 127, through: 1, by: -2).map(String.init)
+        let expected = explicitlyClosed + ["128"] + closedByApplication
         let events = await recorder.values
         XCTAssertEqual(events, expected)
         for scope in scopes {
