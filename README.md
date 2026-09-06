@@ -2,7 +2,7 @@
 
 `Skein` is a small, type-safe dependency-injection container for Swift. Its default API is MainActor-isolated, with explicit Sendable nonisolated and custom-global-actor alternatives.
 
-Read the [Skein website](https://modern-swift-dev.github.io/skein-swift/) or browse the [source repository](https://github.com/modern-swift-dev/skein-swift).
+Read the [Skein website](https://modern-swift-dev.github.io/docs/skein-swift/) or browse the [source repository](https://github.com/modern-swift-dev/skein-swift).
 
 ## Why Skein?
 
@@ -62,16 +62,16 @@ All setup and resolution operations that can fail use Swift error handling, so c
 
 Start with the hosted guides:
 
-- [Overview](https://modern-swift-dev.github.io/skein-swift/)
-- [Documentation index](https://modern-swift-dev.github.io/skein-swift/documentation/)
-- [Getting started](https://modern-swift-dev.github.io/skein-swift/documentation/getting-started/)
-- [Examples](https://modern-swift-dev.github.io/skein-swift/examples/)
+- [Overview](https://modern-swift-dev.github.io/docs/skein-swift/)
+- [Documentation index](https://modern-swift-dev.github.io/docs/skein-swift/documentation/)
+- [Getting started](https://modern-swift-dev.github.io/docs/skein-swift/documentation/getting-started/)
+- [Examples](https://modern-swift-dev.github.io/docs/skein-swift/examples/)
 
 The site publishes separate API references for each library product:
 
-- [Skein API](https://modern-swift-dev.github.io/skein-swift/api/skein/)
-- [SkeinSwiftUI API](https://modern-swift-dev.github.io/skein-swift/api/skein-swiftui/)
-- [SkeinVapor API](https://modern-swift-dev.github.io/skein-swift/api/skein-vapor/)
+- [Skein API](https://modern-swift-dev.github.io/docs/skein-swift/api/skein/)
+- [SkeinSwiftUI API](https://modern-swift-dev.github.io/docs/skein-swift/api/skein-swiftui/)
+- [SkeinVapor API](https://modern-swift-dev.github.io/docs/skein-swift/api/skein-vapor/)
 
 Each stable GitHub release includes `Skein-Documentation.zip`, containing the three matching `.doccarchive` bundles. Download and unzip it, then open each bundle in Xcode to add it to the Documentation browser.
 

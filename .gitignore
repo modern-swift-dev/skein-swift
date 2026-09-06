@@ -39,3 +39,6 @@ playground.xcworkspace
 # Website dependencies and generated static site
 Website/node_modules/
 Website/dist/
+
+# Legacy generated documentation
+/docs/

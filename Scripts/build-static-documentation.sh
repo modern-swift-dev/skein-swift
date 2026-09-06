@@ -45,7 +45,7 @@ for module in "${modules[@]}"; do
         --target "$target" \
         --output-path "$destination" \
         --transform-for-static-hosting \
-        --hosting-base-path "skein-swift/api/$route_name"
+        --hosting-base-path "docs/skein-swift/api/$route_name"
 done
 
 echo "Created static DocC sites in $output_directory/api"
