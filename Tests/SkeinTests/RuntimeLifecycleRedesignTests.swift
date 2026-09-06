@@ -1,5 +1,5 @@
-@preconcurrency import XCTest
 @testable import Skein
+@preconcurrency import XCTest
 
 @globalActor
 private actor RuntimeTestActor {
@@ -9,7 +9,9 @@ private actor RuntimeTestActor {
 @RuntimeTestActor
 private final class RuntimeActorValue: @unchecked Sendable {
     static var creations = 0
-    init() { Self.creations += 1 }
+    init() {
+        Self.creations += 1
+    }
 }
 
 private struct RuntimeCycleA: Sendable {}
@@ -28,12 +30,16 @@ private actor RuntimeGate {
 
     func wait() async {
         arrivals += 1
-        guard !isOpen else { return }
+        guard !isOpen else {
+            return
+        }
         await withCheckedContinuation { waiters.append($0) }
     }
 
     func waitForArrivals(_ expected: Int) async {
-        while arrivals < expected { await Task.yield() }
+        while arrivals < expected {
+            await Task.yield()
+        }
     }
 
     func open() {
@@ -46,28 +52,42 @@ private actor RuntimeGate {
 
 private actor RuntimeRecorder {
     private(set) var values: [String] = []
-    func append(_ value: String) { values.append(value) }
+    func append(_ value: String) {
+        values.append(value)
+    }
 }
 
 private actor RuntimeSkeinErrorRecorder {
     private(set) var values: [SkeinError] = []
-    func append(_ value: SkeinError) { values.append(value) }
+    func append(_ value: SkeinError) {
+        values.append(value)
+    }
 }
 
 private final class RuntimeLockedLog: @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [String] = []
 
-    func append(_ value: String) { lock.withLock { storage.append(value) } }
-    var values: [String] { lock.withLock { storage } }
+    func append(_ value: String) {
+        lock.withLock { storage.append(value) }
+    }
+
+    var values: [String] {
+        lock.withLock { storage }
+    }
 }
 
 private final class RuntimeLockedCount: @unchecked Sendable {
     private let lock = NSLock()
     private var storage = 0
 
-    func increment() { lock.withLock { storage += 1 } }
-    var value: Int { lock.withLock { storage } }
+    func increment() {
+        lock.withLock { storage += 1 }
+    }
+
+    var value: Int {
+        lock.withLock { storage }
+    }
 }
 
 private struct RuntimeRetryValue: Sendable {}
@@ -78,7 +98,9 @@ private final class RuntimeRetryState: @unchecked Sendable {
 
     func make() throws -> RuntimeRetryValue {
         attempts += 1
-        if attempts == 1 { throw RuntimeTestFailure.expected }
+        if attempts == 1 {
+            throw RuntimeTestFailure.expected
+        }
         return RuntimeRetryValue()
     }
 }
@@ -95,6 +117,7 @@ private struct RuntimeMissingDependency {}
 private struct RuntimeNeedsMissing {
     init(_ dependency: RuntimeMissingDependency) {}
 }
+
 private struct RuntimeEagerMain {}
 private struct RuntimeEagerActor: Sendable {}
 private struct RuntimeEagerNonisolated: Sendable {}
@@ -153,14 +176,16 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
             of: ObjectIdentifier.self,
             returning: [ObjectIdentifier].self
         ) { group in
-            for _ in 0..<20 {
+            for _ in 0 ..< 20 {
                 group.addTask {
                     let value: RuntimeActorValue = try await application.actorGet()
                     return ObjectIdentifier(value)
                 }
             }
             var values: [ObjectIdentifier] = []
-            for try await value in group { values.append(value) }
+            for try await value in group {
+                values.append(value)
+            }
             return values
         }
         XCTAssertEqual(Set(identities).count, 1)
@@ -236,13 +261,11 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         completed.expectedFulfillmentCount = 2
         let resolvingA = Task {
             defer { completed.fulfill() }
-            do { let _: RuntimeIndependentRootA = try await application.actorGet() }
-            catch { await recordSkeinError(error, in: errors) }
+            do { let _: RuntimeIndependentRootA = try await application.actorGet() } catch { await recordSkeinError(error, in: errors) }
         }
         let resolvingB = Task {
             defer { completed.fulfill() }
-            do { let _: RuntimeIndependentRootB = try await application.actorGet() }
-            catch { await recordSkeinError(error, in: errors) }
+            do { let _: RuntimeIndependentRootB = try await application.actorGet() } catch { await recordSkeinError(error, in: errors) }
         }
         defer { resolvingA.cancel(); resolvingB.cancel() }
 
@@ -255,7 +278,9 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         let recorded = await errors.values
         XCTAssertEqual(recorded.count, 2)
         XCTAssertTrue(recorded.allSatisfy {
-            if case .circularDependency = $0 { return true }
+            if case .circularDependency = $0 {
+                return true
+            }
             return false
         })
     }
@@ -296,13 +321,11 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         completed.expectedFulfillmentCount = 2
         let resolvingA = Task {
             defer { completed.fulfill() }
-            do { let _: RuntimeIndependentScopeA = try await scope.actorGet() }
-            catch { await recordSkeinError(error, in: errors) }
+            do { let _: RuntimeIndependentScopeA = try await scope.actorGet() } catch { await recordSkeinError(error, in: errors) }
         }
         let resolvingB = Task {
             defer { completed.fulfill() }
-            do { let _: RuntimeIndependentScopeB = try await scope.actorGet() }
-            catch { await recordSkeinError(error, in: errors) }
+            do { let _: RuntimeIndependentScopeB = try await scope.actorGet() } catch { await recordSkeinError(error, in: errors) }
         }
         defer { resolvingA.cancel(); resolvingB.cancel() }
 
@@ -315,7 +338,9 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         let recorded = await errors.values
         XCTAssertEqual(recorded.count, 2)
         XCTAssertTrue(recorded.allSatisfy {
-            if case .circularDependency = $0 { return true }
+            if case .circularDependency = $0 {
+                return true
+            }
             return false
         })
     }
@@ -446,7 +471,9 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         let cancelledWaiter = Task { try await application.actorGet(RuntimeCancelledValue.self) }
         await gate.waitForArrivals(1)
         let survivingWaiter = Task { try await application.actorGet(RuntimeCancelledValue.self) }
-        for _ in 0..<10 { await Task.yield() }
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
         cancelledWaiter.cancel()
         await gate.open()
 
@@ -666,7 +693,7 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
         let gate = RuntimeGate()
 
         let results = try await withThrowingTaskGroup(of: Bool.self, returning: [Bool].self) { group in
-            for _ in 0..<20 {
+            for _ in 0 ..< 20 {
                 group.addTask {
                     try await startSkeinIfNeeded(validation: .declaredRoots) {
                         countedStartupModule(builders: builders, providers: providers, gate: gate)
@@ -676,13 +703,15 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
             await gate.waitForArrivals(1)
             await gate.open()
             var values: [Bool] = []
-            for try await value in group { values.append(value) }
+            for try await value in group {
+                values.append(value)
+            }
             return values
         }
 
         XCTAssertEqual(builders.value, 1)
         XCTAssertEqual(providers.value, 1)
-        XCTAssertEqual(results.filter { $0 }.count, 1)
+        XCTAssertEqual(results.filter(\.self).count, 1)
         XCTAssertTrue(isSkeinStarted)
     }
 
@@ -746,7 +775,9 @@ final class RuntimeLifecycleRedesignTests: XCTestCase {
 
 private func hasUnderlying(_ error: any Error, matching expected: SkeinError) -> Bool {
     guard let resolution = error as? SkeinResolutionError,
-          let underlying = resolution.underlying as? SkeinError else { return false }
+          let underlying = resolution.underlying as? SkeinError else {
+        return false
+    }
     return underlying == expected
 }
 
@@ -755,14 +786,20 @@ private func recordSkeinError(
     in recorder: RuntimeSkeinErrorRecorder
 ) async {
     guard let resolution = error as? SkeinResolutionError,
-          let underlying = resolution.underlying as? SkeinError else { return }
+          let underlying = resolution.underlying as? SkeinError else {
+        return
+    }
     await recorder.append(underlying)
 }
 
 private func hasScopeClosedUnderlying(_ error: any Error) -> Bool {
     guard let resolution = error as? SkeinResolutionError,
-          let underlying = resolution.underlying as? SkeinError else { return false }
-    if case .scopeClosed = underlying { return true }
+          let underlying = resolution.underlying as? SkeinError else {
+        return false
+    }
+    if case .scopeClosed = underlying {
+        return true
+    }
     return false
 }
 

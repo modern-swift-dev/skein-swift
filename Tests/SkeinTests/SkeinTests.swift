@@ -32,7 +32,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
 @MainActor final class SkeinTests: XCTestCase {
     private static let globalSkeinTestLock = NSLock()
 
-    nonisolated override func setUp() async throws {
+    override nonisolated func setUp() async throws {
         try await super.setUp()
         await MainActor.run {
             Self.globalSkeinTestLock.lock()
@@ -40,7 +40,7 @@ private func underlyingSkeinError(_ error: any Error) -> SkeinError? {
         }
     }
 
-    nonisolated override func tearDown() async throws {
+    override nonisolated func tearDown() async throws {
         await MainActor.run {
             stopSkein()
             Self.globalSkeinTestLock.unlock()

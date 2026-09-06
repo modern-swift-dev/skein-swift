@@ -1,14 +1,14 @@
 #if os(macOS) || os(Linux)
-import Vapor
+    import Vapor
 
-func makeRequest(
-    application: Application,
-    headers: HTTPHeaders = .init()
-) -> Request {
-    Request(
-        application: application,
-        headers: headers,
-        on: application.eventLoopGroup.next()
-    )
-}
+    func makeRequest(
+        application: Application,
+        headers: HTTPHeaders = .init()
+    ) -> Request {
+        Request(
+            application: application,
+            headers: headers,
+            on: application.eventLoopGroup.next()
+        )
+    }
 #endif

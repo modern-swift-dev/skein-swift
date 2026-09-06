@@ -1,3 +1,3 @@
 #if os(macOS) || os(Linux)
-struct ThrowingResponderError: Error {}
+    struct ThrowingResponderError: Error {}
 #endif

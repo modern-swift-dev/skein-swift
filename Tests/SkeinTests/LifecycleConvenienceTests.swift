@@ -20,12 +20,12 @@ private struct OtherConvenienceScope: SkeinScope {}
 }
 
 @MainActor final class LifecycleConvenienceTests: XCTestCase {
-    nonisolated override func setUp() async throws {
+    override nonisolated func setUp() async throws {
         try await super.setUp()
         await MainActor.run { stopSkein() }
     }
 
-    nonisolated override func tearDown() async throws {
+    override nonisolated func tearDown() async throws {
         await MainActor.run { stopSkein() }
         try await super.tearDown()
     }
@@ -103,7 +103,9 @@ private struct OtherConvenienceScope: SkeinScope {}
                         let started = try await startSkeinIfNeeded {
                             countedModules(configurations, value: index)
                         }
-                        if started { starts.increment() }
+                        if started {
+                            starts.increment()
+                        }
                     } catch {
                         failures.increment()
                     }

@@ -1,5 +1,5 @@
-import XCTest
 @testable import Skein
+import XCTest
 
 private struct PackD1: Sendable { let value = 1 }
 private struct PackD2: Sendable { let value = 2 }
@@ -27,7 +27,7 @@ private func makeActorConstructed(_ dependency: PackD1) -> ActorConstructed {
 }
 
 final class MainActorFirstRegistrationTests: XCTestCase {
-    @MainActor func testBuildersComposeBindingsAndModulesInDeclarationOrder() async throws {
+    @MainActor func testBuildersComposeBindingsAndModulesInDeclarationOrder() async {
         let includeOptional = true
         let optional: [Binding]? = [instance(PackD2())]
         let bindings = ModuleBuilder.buildBlock(
@@ -43,7 +43,11 @@ final class MainActorFirstRegistrationTests: XCTestCase {
         ])
 
         let first = Module { instance(PackD6()) }
-        let second = Module { if includeOptional { instance(PackD7()) } }
+        let second = Module {
+            if includeOptional {
+                instance(PackD7())
+            }
+        }
         let modules = SkeinApplicationBuilder.buildBlock(
             SkeinApplicationBuilder.buildExpression(first),
             SkeinApplicationBuilder.buildArray([[second]])
@@ -65,12 +69,9 @@ final class MainActorFirstRegistrationTests: XCTestCase {
             module {
                 instance(PackD1()); instance(PackD2()); instance(PackD3()); instance(PackD4())
                 instance(PackD5()); instance(PackD6()); instance(PackD7()); instance(PackD8())
-                factory(PackResult.self, using: { (
-                    d1: PackD1, d2: PackD2, d3: PackD3, d4: PackD4,
-                    d5: PackD5, d6: PackD6, d7: PackD7, d8: PackD8
-                ) in
+                factory(PackResult.self, using: { (d1: PackD1, d2: PackD2, d3: PackD3, d4: PackD4, d5: PackD5, d6: PackD6, d7: PackD7, d8: PackD8) in
                     PackResult(value: d1.value + d2.value + d3.value + d4.value
-                               + d5.value + d6.value + d7.value + d8.value)
+                        + d5.value + d6.value + d7.value + d8.value)
                 })
             }
         }
@@ -82,8 +83,7 @@ final class MainActorFirstRegistrationTests: XCTestCase {
         let root = factory(
             AssistedResult.self,
             arguments: String.self,
-            using: { (argument: String, d1: PackD1, d2: PackD2, d3: PackD3,
-                                 d4: PackD4, d5: PackD5) in
+            using: { (argument: String, d1: PackD1, d2: PackD2, d3: PackD3, d4: PackD4, d5: PackD5) in
                 AssistedResult(value: "\(argument):\(d1.value + d2.value + d3.value + d4.value + d5.value)")
             }
         ).root()
@@ -128,8 +128,8 @@ final class MainActorFirstRegistrationTests: XCTestCase {
                     isolatedTo: RegistrationDatabaseActor.self,
                     using: makeActorConstructed
                 )
-                actorFactory(PackResult.self, isolatedTo: RegistrationDatabaseActor.self, provider: {
-                    @RegistrationDatabaseActor _ in PackResult(value: 42)
+                actorFactory(PackResult.self, isolatedTo: RegistrationDatabaseActor.self, provider: { @RegistrationDatabaseActor _ in
+                    PackResult(value: 42)
                 })
             }
         }
@@ -143,8 +143,8 @@ final class MainActorFirstRegistrationTests: XCTestCase {
     @MainActor func testCustomActorMismatchIsRejectedAtConstruction() async {
         XCTAssertThrowsError(try SkeinApplication {
             module {
-                actorFactory(PackResult.self, isolatedTo: RegistrationDatabaseActor.self, provider: {
-                    @MainActor _ in PackResult(value: 42)
+                actorFactory(PackResult.self, isolatedTo: RegistrationDatabaseActor.self, provider: { @MainActor _ in
+                    PackResult(value: 42)
                 })
             }
         }) { error in
