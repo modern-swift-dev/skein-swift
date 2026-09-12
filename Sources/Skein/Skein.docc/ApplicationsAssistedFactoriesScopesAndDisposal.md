@@ -69,6 +69,8 @@ Once closing begins, all resolution through that scope fails, including inherite
 
 Only one active `(scope type, ID)` pair is allowed; closing it permits a replacement with the same ID. Scopes are flat: one scope cannot depend on bindings from another scope, and root bindings cannot depend on scoped bindings.
 
+To supply an existing Sendable value, use `application.createScope(_:id:seeding:)`. Register an unqualified scoped binding for that value's static type in the same scope kind first. The seed replaces the provider result for this scope, and the binding's disposer runs when the scope closes. This lets integrations inject an externally created context while preserving scope ownership and cleanup.
+
 ## Async disposal
 
 `single` and `scoped` accept MainActor asynchronous `onClose` callbacks. Their `nonisolated...` and `actor...` counterparts retain the selected isolation. `close()` is async, idempotent, and disposes successfully created values once in reverse creation order. The owning application or scope releases each cached reference after its disposal finishes, so disposed values need not remain in memory while later callbacks run. References retained by callers or other services still determine when a value is deallocated.

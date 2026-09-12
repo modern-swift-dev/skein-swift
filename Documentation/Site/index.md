@@ -32,7 +32,7 @@ Register values as lazy singletons, factories, and typed scopes. Use constructor
 
 ## Platform support
 
-Skein uses Swift 6 and supports macOS 15, iOS 17, tvOS 17, watchOS 10, and visionOS 1. The optional Vapor integration also supports Linux.
+Skein uses Swift 6 and supports macOS 15, iOS 17, tvOS 17, watchOS 10, and visionOS 1.
 
 ## Source and docs
 

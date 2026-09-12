@@ -4,4 +4,3 @@ builder:
     - documentation_targets:
         - Skein
         - SkeinSwiftUI
-        - SkeinVapor

@@ -2,7 +2,7 @@
 
 ## Structure
 
-- Keep core code in `Sources/Skein`; isolate SwiftUI and Vapor code in their dedicated targets and matching test targets.
+- Keep core code in `Sources/Skein`; isolate SwiftUI code in its dedicated target and matching test target.
 - Preserve the platform guards and baselines declared in `Package.swift`.
 - Define one top-level Swift type per file, named after that type. Keep related extensions with it or in `Type+Concern.swift`.
 - Do not reorganize unrelated existing code solely to enforce these rules.

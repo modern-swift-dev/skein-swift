@@ -7,7 +7,7 @@ output_directory="$repository_root/.build/documentation"
 derived_data_directory="$output_directory/DerivedData"
 archive_directory="$output_directory/archives"
 archive_path="$output_directory/Skein-Documentation.zip"
-expected_archives=(Skein.doccarchive SkeinSwiftUI.doccarchive SkeinVapor.doccarchive)
+expected_archives=(Skein.doccarchive SkeinSwiftUI.doccarchive)
 
 mkdir -p "$output_directory"
 rm -rf "$archive_directory"

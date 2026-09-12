@@ -27,12 +27,6 @@ Browse the generated DocC reference for the optional SwiftUI adapter.
 
 [Read more →](/docs/skein-swift/api/skein-swiftui/)
 
-## [SkeinVapor API reference](/docs/skein-swift/api/skein-vapor/)
-
-Browse the generated DocC reference for the optional Vapor integration.
-
-[Read more →](/docs/skein-swift/api/skein-vapor/)
-
 ## [Bindings and lifetimes](https://github.com/modern-swift-dev/skein-swift/blob/main/Sources/Skein/Skein.docc/BindingsAndLifetimes.md)
 
 Use lazy singles, factories, typed scopes, constructor injection, and explicit isolation.
@@ -59,6 +53,6 @@ Use nonisolated and custom-global-actor bindings where they belong.
 
 ## [Skein adapters](https://github.com/modern-swift-dev/skein-swift/tree/main/Sources)
 
-Optional SkeinSwiftUI and SkeinVapor targets live alongside the core module.
+The optional SkeinSwiftUI target lives alongside the core module.
 
 [Read more →](https://github.com/modern-swift-dev/skein-swift/tree/main/Sources)

@@ -121,9 +121,6 @@ jobs:
 
           xcodebuild build -scheme Skein -destination "$destination" 2>&1 | mint run --no-install cpisciotta/xcbeautify -q
           xcodebuild build -scheme SkeinSwiftUI -destination "$destination" 2>&1 | mint run --no-install cpisciotta/xcbeautify -q
-          if [ '${{ matrix.platform }}' = 'macOS' ]; then
-            xcodebuild build -scheme SkeinVapor -destination "$destination" 2>&1 | mint run --no-install cpisciotta/xcbeautify -q
-          fi
       - name: Test on ${{ matrix.platform }}
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.device-id }}

@@ -13,47 +13,19 @@ let package = Package(
     ],
     products: [
         .library(name: "Skein", targets: ["Skein"]),
-        .library(name: "SkeinSwiftUI", targets: ["SkeinSwiftUI"]),
-        .library(name: "SkeinVapor", targets: ["SkeinVapor"])
+        .library(name: "SkeinSwiftUI", targets: ["SkeinSwiftUI"])
     ],
     dependencies: [
         .package(
             url: "https://github.com/swiftlang/swift-docc-plugin",
             exact: "1.5.0"
-        ),
-        .package(
-            url: "https://github.com/vapor/vapor.git",
-            exact: "4.122.0"
         )
     ],
     targets: [
         .target(name: "Skein"),
         .target(name: "SkeinSwiftUI", dependencies: ["Skein"]),
-        .target(
-            name: "SkeinVapor",
-            dependencies: [
-                "Skein",
-                .product(
-                    name: "Vapor",
-                    package: "vapor",
-                    condition: .when(platforms: [.macOS, .linux])
-                )
-            ]
-        ),
         .testTarget(name: "SkeinTests", dependencies: ["Skein"]),
-        .testTarget(name: "SkeinSwiftUITests", dependencies: ["SkeinSwiftUI", "Skein"]),
-        .testTarget(
-            name: "SkeinVaporTests",
-            dependencies: [
-                "SkeinVapor",
-                "Skein",
-                .product(
-                    name: "Vapor",
-                    package: "vapor",
-                    condition: .when(platforms: [.macOS, .linux])
-                )
-            ]
-        )
+        .testTarget(name: "SkeinSwiftUITests", dependencies: ["SkeinSwiftUI", "Skein"])
     ],
     swiftLanguageModes: [.v6]
 )

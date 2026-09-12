@@ -147,15 +147,21 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
         try container.createScope(type, id: id)
     }
 
-    /// Creates a scope instance seeded with a sendable service.
+    /// Creates a scope instance seeded with a Sendable service.
+    ///
+    /// Register an unqualified scoped binding for the service's static type in
+    /// this scope kind before creating the scope. The seeded value is cached
+    /// without calling that binding's provider. Its registered disposer runs
+    /// when the scope closes. Close the scope when its work finishes.
     ///
     /// - Parameters:
     ///   - type: The scope kind to create.
     ///   - id: A stable identity for the scope instance.
     ///   - service: The initial service value stored in the scope.
     /// - Returns: The newly created scope instance.
-    /// - Throws: A configuration error when the scope cannot be created.
-    package func createScope<Kind: SkeinScope>(
+    /// - Throws: A Skein error if the application is closed, the scope identity
+    ///   already exists, or the matching scoped binding is missing.
+    public func createScope<Kind: SkeinScope>(
         _ type: Kind.Type,
         id: some Hashable & Sendable,
         seeding service: some Sendable

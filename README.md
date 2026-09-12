@@ -27,8 +27,6 @@ Then depend on the `Skein` product:
 .product(name: "Skein", package: "skein-swift")
 ```
 
-Vapor 4 applications can instead add the `SkeinVapor` product alongside `Skein`. The integration is available on macOS 15 and Linux and pins Vapor 4.122.0.
-
 ## Quick start
 
 Bindings declare their exposed type and receive a `Resolver` for their own dependencies. A `single` is created once on first use; a `factory` creates a new value for every resolution.
@@ -73,9 +71,8 @@ The site publishes separate API references for each library product:
 
 - [Skein API](https://modern-swift-dev.github.io/docs/skein-swift/api/skein/)
 - [SkeinSwiftUI API](https://modern-swift-dev.github.io/docs/skein-swift/api/skein-swiftui/)
-- [SkeinVapor API](https://modern-swift-dev.github.io/docs/skein-swift/api/skein-vapor/)
 
-Each stable GitHub release includes `Skein-Documentation.zip`, containing the three matching `.doccarchive` bundles. Download and unzip it, then open each bundle in Xcode to add it to the Documentation browser.
+Each stable GitHub release includes `Skein-Documentation.zip`, containing the two matching `.doccarchive` bundles. Download and unzip it, then open each bundle in Xcode to add it to the Documentation browser.
 
 Build the same archive locally with:
 
