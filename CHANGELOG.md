@@ -22,6 +22,7 @@
 - A cancelled `actorGet` waiter on a shared custom-actor single or scoped creation now throws a bare `CancellationError` immediately instead of waiting for the creation to finish. More generally, `actorGet` no longer wraps a `CancellationError` in `SkeinResolutionError` when the calling task is cancelled. The shared creation keeps running for other waiters.
 - `SkeinStateObject` forwards a model's `objectWillChange` synchronously when the model publishes on the main thread, so SwiftUI sees the change before the mutation and keeps transaction and animation context. Models that publish from other threads are still forwarded on the main queue.
 - `SkeinStateObject` now retries a `SkeinSwiftUIError.missingApplication` failure once an application appears in the environment. Successful results and provider failures are still kept for the view's identity.
+- A scope frees its `(kind, ID)` slot as soon as it begins closing, so a replacement with the same kind and ID can be created while the previous scope is still disposing, instead of throwing `duplicateScope`. Closing the application still waits for scopes that are mid-close.
 
 ### Fixes
 

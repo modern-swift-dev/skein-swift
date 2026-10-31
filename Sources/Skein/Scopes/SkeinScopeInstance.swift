@@ -295,8 +295,11 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
     ///
     /// Until it is closed, the scope is owned by the application that created it: the application
     /// keeps the scope and its cached services in memory even when no caller references the scope.
-    /// Closing detaches the scope from its application. Closing the application closes any scopes
-    /// that are still open, so their disposers always run eventually.
+    /// Closing the application closes any scopes that are still open, so their disposers always run eventually.
+    ///
+    /// The scope's `(kind, ID)` slot is freed as soon as closing begins, so a replacement scope with the
+    /// same kind and ID can be created while this one is still disposing. Their lifetimes may overlap.
+    /// Closing the application still waits for this scope's disposal to finish.
     public func close() async {
         let owner = ObjectIdentifier(self)
         if DisposalContext.owners.contains(owner) {
@@ -307,6 +310,9 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
                 return nil
             }
             state = .closing
+            // Free the (kind, ID) slot now so a replacement scope can be created while
+            // this one is still disposing. The application keeps awaiting this scope.
+            container.beginClosingScope(self, identity: identity)
             return asyncInstances.values.compactMap { state in
                 guard case let .inFlight(value) = state else {
                     return nil
@@ -331,7 +337,7 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
                 await dispose(instance.value, using: instance.disposer)
             }
         }
-        container.detachScope(identity)
+        container.finishClosingScope(self)
         let waiters = lock.withLock {
             state = .closed
             defer { closeWaiters.removeAll() }

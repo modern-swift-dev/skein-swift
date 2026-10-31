@@ -138,6 +138,8 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
     /// The application keeps a strong reference to the scope, and to the services it caches,
     /// until the scope is closed or the application closes. Close each scope when its work
     /// finishes; a scope that is never closed stays in memory for the application's lifetime.
+    /// A scope frees its kind and ID as soon as it begins closing, so a replacement can be
+    /// created while the previous scope is still disposing.
     ///
     /// - Parameters:
     ///   - type: The scope kind to create.
@@ -164,6 +166,8 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
     /// The application keeps a strong reference to the scope, and to the services it caches,
     /// until the scope is closed or the application closes. Close each scope when its work
     /// finishes; a scope that is never closed stays in memory for the application's lifetime.
+    /// A scope frees its kind and ID as soon as it begins closing, so a replacement can be
+    /// created while the previous scope is still disposing.
     ///
     /// ```swift
     /// let session: any Session = LiveSession()
@@ -203,6 +207,8 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
     /// The application keeps a strong reference to the scope, and to the services it caches,
     /// until the scope is closed or the application closes. Close each scope when its work
     /// finishes; a scope that is never closed stays in memory for the application's lifetime.
+    /// A scope frees its kind and ID as soon as it begins closing, so a replacement can be
+    /// created while the previous scope is still disposing.
     ///
     /// - Parameters:
     ///   - type: The scope kind to create.

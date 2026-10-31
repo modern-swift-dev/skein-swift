@@ -67,7 +67,7 @@ let session: UserSession = try scope.get()
 
 Once closing begins, all resolution through that scope fails, including inherited root and assisted bindings. Closing a scope leaves application-owned singletons available through the application.
 
-Only one active `(scope type, ID)` pair is allowed; closing it permits a replacement with the same ID. Scopes are flat: one scope cannot depend on bindings from another scope, and root bindings cannot depend on scoped bindings.
+Only one active `(scope type, ID)` pair is allowed. A scope frees its ID as soon as it begins closing, so a replacement with the same ID can be created while the previous scope is still disposing; their lifetimes may briefly overlap. Scopes are flat: one scope cannot depend on bindings from another scope, and root bindings cannot depend on scoped bindings.
 
 To supply an existing Sendable value, use `application.createScope(_:id:seeding:as:qualifier:)`. Register a scoped binding for the service type in the same scope kind first, and name that type with `as:`, plus its qualifier when the binding is qualified. The seed replaces the provider result for this scope, and the binding's disposer runs when the scope closes. This lets integrations inject an externally created context while preserving scope ownership and cleanup.
 
@@ -88,7 +88,7 @@ let scope = try application.createScope(
 
 ### Scope ownership
 
-An application owns every scope it creates until that scope is closed. It keeps the scope and its cached services in memory even when no caller still references the scope, which guarantees that their disposers eventually run. Close each scope when its work finishes: in a long-running app, scopes that are never closed accumulate until the application closes. Closing the application closes any scopes that are still open.
+An application owns every scope it creates until that scope is closed. It keeps the scope and its cached services in memory even when no caller still references the scope, which guarantees that their disposers eventually run. Close each scope when its work finishes: in a long-running app, scopes that are never closed accumulate until the application closes. Closing the application closes any scopes that are still open, and waits for scopes that are still closing to finish disposal.
 
 ## Async disposal
 

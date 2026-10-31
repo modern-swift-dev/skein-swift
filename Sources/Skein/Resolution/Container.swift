@@ -42,6 +42,9 @@ package final class Container: Resolver, @unchecked Sendable {
     private var completedInstances: [CachedInstance] = []
     private var asyncWaitEdges: [AsyncCreationIdentity: Set<AsyncCreationIdentity>] = [:]
     private var scopes: [ScopeIdentity: RegisteredScope] = [:]
+    /// Scopes that have begun closing. They no longer occupy their `(kind, ID)` slot in
+    /// ``scopes``, but the container still awaits them when it closes.
+    private var closingScopes: [ObjectIdentifier: RegisteredScope] = [:]
     private var nextScopeOrder: UInt64 = 0
     private var state: State = .active
     private var closeWaiters: [() -> Void] = []
@@ -685,12 +688,31 @@ package final class Container: Resolver, @unchecked Sendable {
         }
     }
 
-    /// Removes a closed scope from the container's scope registry.
+    /// Frees a scope's `(kind, ID)` slot because the scope has begun closing.
     ///
-    /// - Parameter identity: The identity of the scope to remove.
-    package func detachScope(_ identity: ScopeIdentity) {
+    /// A replacement scope with the same kind and ID can be created immediately. The container
+    /// keeps tracking the closing scope until ``finishClosingScope(_:)``, so closing the
+    /// container still awaits its disposal.
+    ///
+    /// - Parameters:
+    ///   - scope: The scope that has begun closing.
+    ///   - identity: The `(kind, ID)` identity under which the scope is registered.
+    package func beginClosingScope(_ scope: any ScopeStorage, identity: ScopeIdentity) {
         lock.withLock {
-            _ = scopes.removeValue(forKey: identity)
+            guard let registered = scopes[identity], registered.scope === scope else {
+                return
+            }
+            scopes.removeValue(forKey: identity)
+            closingScopes[ObjectIdentifier(scope)] = registered
+        }
+    }
+
+    /// Stops tracking a scope that has finished closing.
+    ///
+    /// - Parameter scope: The scope that has finished closing.
+    package func finishClosingScope(_ scope: any ScopeStorage) {
+        lock.withLock {
+            _ = closingScopes.removeValue(forKey: ObjectIdentifier(scope))
         }
     }
 
@@ -747,7 +769,10 @@ package final class Container: Resolver, @unchecked Sendable {
                 return nil
             }
             state = .closing
-            let activeScopes = scopes.values.sorted { $0.order > $1.order }.map(\.scope)
+            // Scopes that are already closing are awaited too, so their disposers finish first.
+            let activeScopes = (Array(scopes.values) + closingScopes.values)
+                .sorted { $0.order > $1.order }
+                .map(\.scope)
             let tasks = asyncSingletons.values.compactMap { state -> InFlight? in
                 guard case let .inFlight(value) = state else {
                     return nil
@@ -782,7 +807,7 @@ package final class Container: Resolver, @unchecked Sendable {
 
         let waiters = lock.withLock {
             asyncWaitEdges.removeAll()
-            scopes.removeAll(); state = .closed
+            scopes.removeAll(); closingScopes.removeAll(); state = .closed
             defer { closeWaiters.removeAll() }
             return closeWaiters
         }
