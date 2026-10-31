@@ -17,7 +17,8 @@ mkdir -p "$archive_directory"
 xcodebuild docbuild \
     -scheme Skein-Package \
     -destination 'generic/platform=macOS' \
-    -derivedDataPath "$derived_data_directory"
+    -derivedDataPath "$derived_data_directory" \
+    OTHER_DOCC_FLAGS="--warnings-as-errors"
 
 for archive_name in "${expected_archives[@]}"; do
     archive_source="$(find "$derived_data_directory/Build/Products" -type d -name "$archive_name" -print -quit)"

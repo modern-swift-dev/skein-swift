@@ -55,9 +55,15 @@ jobs:
           - platform: iOS
             simulator-name: iPhone 17 Pro
             runtime-platform: iOS
+          - platform: tvOS
+            simulator-name: Apple TV 4K (3rd generation)
+            runtime-platform: tvOS
           - platform: visionOS
             simulator-name: Apple Vision Pro
             runtime-platform: visionOS
+          - platform: watchOS
+            simulator-name: Apple Watch Series 11 (46mm)
+            runtime-platform: watchOS
     steps:
       - uses: actions/checkout@v4
       - name: Install xcbeautify
@@ -132,3 +138,39 @@ jobs:
           fi
 
           xcodebuild test -scheme Skein-Package -destination "$destination" 2>&1 | mint run --no-install cpisciotta/xcbeautify -q
+      - name: Test examples
+        if: matrix.platform == 'macOS'
+        run: make test-examples
+      - name: Report coverage
+        if: matrix.platform == 'macOS'
+        run: |
+          set -o pipefail
+          swift test --enable-code-coverage 2>&1 | mint run --no-install cpisciotta/xcbeautify -q
+
+          codecov_directory="$(dirname "$(swift test --show-codecov-path)")"
+          bin_path="$(swift build --show-bin-path)"
+          objects=()
+          for bundle in "$bin_path"/*.xctest; do
+            objects+=(-object "$bundle/Contents/MacOS/$(basename "$bundle" .xctest)")
+          done
+
+          {
+            echo '## Coverage'
+            echo
+            echo '```'
+            xcrun llvm-cov report "${objects[@]}" \
+              -instr-profile "$codecov_directory/default.profdata" \
+              -ignore-filename-regex '(/\.build/|/Tests/)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  documentation:
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Xcode 26.6
+        run: xcodebuild -version | grep -F 'Xcode 26.6'
+      - name: Build documentation with warnings as errors
+        run: make documentation
