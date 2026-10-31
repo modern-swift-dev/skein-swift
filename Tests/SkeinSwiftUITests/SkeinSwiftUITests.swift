@@ -262,6 +262,45 @@
             }
             XCTAssertTrue(model === explicit)
         }
+
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
+        @MainActor func testResolvingWithoutArgumentsResolvesPlainAndQualifiedBindings() throws {
+            let application = try SkeinApplication {
+                module {
+                    factory(TestModel.self, provider: { _ in TestModel(value: 1) })
+                    factory(TestModel.self, qualifier: ModelQualifier.alternate, provider: { _ in TestModel(value: 2) })
+                }
+            }
+            let plain = ResultRecorder()
+            let qualified = ResultRecorder()
+            let host = TestViewHost(
+                rootView: VStack {
+                    ResultProbeView(recorder: plain)
+                    ResultProbeView(recorder: qualified, qualifier: ModelQualifier.alternate)
+                }
+                .skeinApplication(application)
+            )
+            defer { host.close() }
+            host.layout()
+
+            guard case let .success(plainModel)?? = plain.results.last,
+                  case let .success(qualifiedModel)?? = qualified.results.last else {
+                return XCTFail("Expected both wrappers to resolve from the environment")
+            }
+            XCTAssertEqual(plainModel.value, 1)
+            XCTAssertEqual(qualifiedModel.value, 2)
+        }
+
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
+        func testMissingApplicationErrorDescriptionPointsToTheModifier() throws {
+            let description = try XCTUnwrap(SkeinSwiftUIError.missingApplication.errorDescription)
+            XCTAssertTrue(description.contains(".skeinApplication(_:)"))
+            XCTAssertEqual(SkeinSwiftUIError.missingApplication.localizedDescription, description)
+        }
+    }
+
+    private enum ModelQualifier: SkeinQualifier {
+        case alternate
     }
 
     private struct TestProviderFailure: Error {}
@@ -300,6 +339,11 @@
 
         @MainActor init(recorder: ResultRecorder) {
             _model = .resolving()
+            self.recorder = recorder
+        }
+
+        @MainActor init(recorder: ResultRecorder, qualifier: any SkeinQualifier) {
+            _model = .resolving(qualifier: qualifier)
             self.recorder = recorder
         }
 
