@@ -41,4 +41,6 @@ Website/node_modules/
 Website/dist/
 
 # Legacy generated documentation
-/docs/
+/docs/*
+!/docs/agents/
+!/docs/adr/

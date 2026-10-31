@@ -22,3 +22,17 @@
 - Serialize tests that use global Skein state, and restore that state during cleanup.
 - Follow `.swiftformat` and `.swiftlint.yml`; format only files in scope.
 - Run `make format`, `make lint` and `make test` for Swift changes. Also run `make test-examples` or the relevant platform target when affected; use `make test-all` for broad changes.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `modern-swift-dev/skein-swift` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
