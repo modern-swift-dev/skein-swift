@@ -191,14 +191,15 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
 
     /// Resolves and caches an asynchronous scoped binding.
     ///
-    /// Concurrent requests for the same binding share one in-flight creation.
+    /// Concurrent requests for the same binding share one in-flight creation. A cancelled
+    /// request throws `CancellationError` immediately without cancelling the shared creation.
     ///
     /// - Parameters:
     ///   - key: The key of the binding being resolved.
     ///   - binding: The scoped binding that supplies the service.
     ///   - provider: The asynchronous operation that creates the service when it is not cached.
     /// - Returns: The cached or newly created service value.
-    /// - Throws: A circular-dependency or scope-lifecycle error, or an error from `provider`.
+    /// - Throws: A circular-dependency or scope-lifecycle error, an error from `provider`, or `CancellationError`.
     package func resolveAsync(
         key: BindingKey, binding: Binding,
         provider: @escaping @Sendable () async throws -> Any
@@ -244,17 +245,19 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
                 case let .inFlight(inFlight):
                     let waitEdge = try self.container.beginAsyncWait(on: inFlight.identity)
                     defer { self.container.endAsyncWait(waitEdge) }
-                    do {
-                        let value = try await inFlight.task.value
-                        return try self.finish(key: key, inFlight: inFlight, value: value).value
-                    } catch {
-                        self.lock.withLock {
-                            if case let .inFlight(current) = self.asyncInstances[key],
-                               current.identity.token == inFlight.identity.token {
-                                self.asyncInstances.removeValue(forKey: key)
+                    // A cancelled waiter stops waiting at once, while the shared
+                    // creation keeps running and is still cached for other waiters.
+                    switch try await inFlight.task.resultUnlessCancelled() {
+                        case let .success(value):
+                            return try self.finish(key: key, inFlight: inFlight, value: value).value
+                        case let .failure(error):
+                            self.lock.withLock {
+                                if case let .inFlight(current) = self.asyncInstances[key],
+                                   current.identity.token == inFlight.identity.token {
+                                    self.asyncInstances.removeValue(forKey: key)
+                                }
                             }
-                        }
-                        throw error
+                            throw error
                     }
             }
         }

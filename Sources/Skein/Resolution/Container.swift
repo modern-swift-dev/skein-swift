@@ -270,12 +270,14 @@ package final class Container: Resolver, @unchecked Sendable {
 
     /// Resolves a root binding using its required actor isolation.
     ///
+    /// A caller cancelled while resolving receives a bare `CancellationError`.
+    ///
     /// - Parameters:
     ///   - type: The sendable service type to resolve.
     ///   - qualifier: The qualifier selecting a binding, or `nil` for an unqualified binding.
     ///   - arguments: Assisted arguments whose static type selects the binding, or `nil` for a non-assisted binding.
     /// - Returns: The resolved service.
-    /// - Throws: A resolution or type-mismatch error, or an error from the provider.
+    /// - Throws: A resolution or type-mismatch error, an error from the provider, or `CancellationError`.
     package func resolveActor<Service: Sendable, Arguments: Sendable>(
         _ type: Service.Type,
         qualifier: (any SkeinQualifier)?,
@@ -286,6 +288,8 @@ package final class Container: Resolver, @unchecked Sendable {
             let binding = try rootBinding(for: key)
             let value = try await resolveAnyActor(key: key, binding: binding, arguments: arguments)
             return try cast(value, to: type)
+        } catch let error as CancellationError where Task.isCancelled {
+            throw error
         } catch {
             throw resolutionError(error, appending: key, source: rootSource(for: key))
         }
@@ -381,13 +385,15 @@ package final class Container: Resolver, @unchecked Sendable {
 
     /// Resolves a scoped binding using its required actor isolation.
     ///
+    /// A caller cancelled while resolving receives a bare `CancellationError`.
+    ///
     /// - Parameters:
     ///   - scope: The scope in which to resolve the binding.
     ///   - type: The sendable service type to resolve.
     ///   - qualifier: The qualifier selecting a binding, or `nil` for an unqualified binding.
     ///   - arguments: Assisted arguments whose static type selects the binding, or `nil` for a non-assisted binding.
     /// - Returns: The resolved service.
-    /// - Throws: A resolution, scope-lifecycle, or type-mismatch error, or an error from the provider.
+    /// - Throws: A resolution, scope-lifecycle, or type-mismatch error, an error from the provider, or `CancellationError`.
     package func resolveActorInScope<Kind: SkeinScope, Service: Sendable, Arguments: Sendable>(
         _ scope: SkeinScopeInstance<Kind>, type: Service.Type,
         qualifier: (any SkeinQualifier)?, arguments: Arguments?
@@ -443,6 +449,8 @@ package final class Container: Resolver, @unchecked Sendable {
                     }
             }
             return try cast(value, to: type)
+        } catch let error as CancellationError where Task.isCancelled {
+            throw error
         } catch {
             throw resolutionError(error, appending: key, source: preferredBinding(for: key, scopeType: ObjectIdentifier(Kind.self))?.source)
         }
@@ -561,17 +569,19 @@ package final class Container: Resolver, @unchecked Sendable {
                 case let .inFlight(inFlight):
                     let waitEdge = try beginAsyncWait(on: inFlight.identity)
                     defer { endAsyncWait(waitEdge) }
-                    do {
-                        let value = try await inFlight.task.value
-                        return try finishAsyncSingleton(key: key, inFlight: inFlight, value: value).value
-                    } catch {
-                        lock.withLock {
-                            if case let .inFlight(current) = asyncSingletons[key],
-                               current.identity.token == inFlight.identity.token {
-                                asyncSingletons.removeValue(forKey: key)
+                    // A cancelled waiter stops waiting at once, while the shared
+                    // creation keeps running and is still cached for other waiters.
+                    switch try await inFlight.task.resultUnlessCancelled() {
+                        case let .success(value):
+                            return try finishAsyncSingleton(key: key, inFlight: inFlight, value: value).value
+                        case let .failure(error):
+                            lock.withLock {
+                                if case let .inFlight(current) = asyncSingletons[key],
+                                   current.identity.token == inFlight.identity.token {
+                                    asyncSingletons.removeValue(forKey: key)
+                                }
                             }
-                        }
-                        throw error
+                            throw error
                     }
             }
         }

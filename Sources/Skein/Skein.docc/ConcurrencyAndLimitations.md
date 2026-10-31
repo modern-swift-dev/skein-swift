@@ -58,7 +58,7 @@ Custom-actor constructor registrations may resolve Sendable dependencies across 
 ## Runtime guarantees and boundaries
 
 - Concurrent async singleton resolution coalesces first creation; a failed creation is retried later.
-- Cancellation of one waiter does not cancel shared singleton creation.
+- Cancellation of one waiter does not cancel shared singleton creation. A cancelled waiter on a shared custom-actor single or scoped binding stops waiting at once and throws a bare `CancellationError`, not a `SkeinResolutionError`, so `catch is CancellationError` works. The creation keeps running for the remaining waiters, and its result is still cached and disposed as usual.
 - Task-local resolution paths detect cycles across actor hops, while a container-wide wait graph detects cycles between independently started async creations.
 - Skein protects container state but does not make registered objects internally thread-safe.
 - Lifetimes are lazy singleton, factory, and flat typed scope; nested scopes, reflection, property injection, and macros are not provided.
