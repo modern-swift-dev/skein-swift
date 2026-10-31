@@ -106,6 +106,6 @@ _ = try application.get(Connection.self)
 await application.close()
 ```
 
-`stopSkein()` retains its legacy detach-only behavior. Use `await stopSkeinAndClose()` when the global application must dispose cached resources deterministically.
+`stopSkein()` only *stops* the process-wide application: it uninstalls it without *closing* it, so no disposer runs and its cached services and active scopes are released without disposal. Use `await stopSkeinAndClose()` to stop and close the global application, awaiting disposal of its cached resources.
 
 SwiftUI view-hierarchy integration is documented in the separate `SkeinSwiftUI` documentation archive.

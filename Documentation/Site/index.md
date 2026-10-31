@@ -26,6 +26,8 @@ let service: UserService = try get()
 stopSkein()
 ```
 
+`stopSkein()` uninstalls the application without running disposers. Use `await stopSkeinAndClose()` when services or scopes hold resources that must be disposed.
+
 ## Capabilities
 
 Register values as lazy singletons, factories, and typed scopes. Use constructor injection, assisted factories, protocol bindings, qualifiers, and modules that compose by feature.

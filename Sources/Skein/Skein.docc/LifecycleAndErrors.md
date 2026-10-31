@@ -14,7 +14,7 @@ defer { stopSkein() }
 let service: FeatureService = try get()
 ```
 
-`stopSkein()` detaches the application. Use `await stopSkeinAndClose()` when cached values and active scopes must be disposed. `isSkeinStarted` is a snapshot; `startSkeinIfNeeded` atomically installs only the first candidate and does not evaluate later builders.
+*Stopping* uninstalls the process-wide application; *closing* disposes an application's cached services and active scopes. `stopSkein()` only stops: disposers never run, and the old application's resources are released without disposal, even if Skein is started again. That is acceptable at process exit or in tests that hold no disposable resources. Use `await stopSkeinAndClose()` to stop and close, awaiting disposal. `isSkeinStarted` is a snapshot; `startSkeinIfNeeded` atomically installs only the first candidate and does not evaluate later builders.
 
 ## Declared roots and validated startup
 

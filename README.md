@@ -54,6 +54,8 @@ let service: UserService = try get()
 stopSkein()
 ```
 
+`stopSkein()` uninstalls the application without running disposers. Use `await stopSkeinAndClose()` when services or scopes hold resources that must be disposed.
+
 All setup and resolution operations that can fail use Swift error handling, so call them with `try` and handle failures appropriate to your application.
 
 ## Documentation

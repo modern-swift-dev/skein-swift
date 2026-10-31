@@ -276,9 +276,18 @@ private func installedApplication() throws -> SkeinApplication {
     return application
 }
 
-/// Stops process-wide resolution and cancels validated startup if it is running.
+/// Stops process-wide resolution without closing the installed application.
 ///
-/// This operation does not run disposal callbacks for an installed application.
+/// Stopping uninstalls the process-wide application, so later global resolution throws
+/// ``SkeinError/notStarted``. A validated startup still in progress is cancelled instead.
+///
+/// - Important: Stopping does **not** close the application. Its disposers never run, and
+///   its cached services and active scopes are released without disposal. Starting Skein
+///   again afterwards leaves the previous application's resources undisposed.
+///
+/// Skipping disposal is acceptable when the process is about to exit, or in tests whose
+/// bindings hold no disposable resources. Otherwise, call ``stopSkeinAndClose()`` to stop
+/// and await disposal.
 @MainActor public func stopSkein() {
     let startup = GlobalSkein.lock.withLock { () -> GlobalSkein.Startup? in
         defer { GlobalSkein.state = .idle }

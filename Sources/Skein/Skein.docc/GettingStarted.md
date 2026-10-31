@@ -50,4 +50,6 @@ let clock = try get((any Clock).self)
 stopSkein()
 ```
 
+`stopSkein()` uninstalls the application without running disposers. Use `await stopSkeinAndClose()` when services or scopes hold resources that must be disposed. See <doc:LifecycleAndErrors>.
+
 The unprefixed registration and resolution APIs are MainActor-isolated. `get`, `startSkein`, and binding providers can throw. See <doc:LifecycleAndErrors> for the errors to handle.

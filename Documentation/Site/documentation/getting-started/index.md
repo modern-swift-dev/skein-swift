@@ -68,6 +68,8 @@ let clock = try get((any Clock).self)
 stopSkein()
 ```
 
+`stopSkein()` uninstalls the application without running disposers. Use `await stopSkeinAndClose()` when services or scopes hold resources that must be disposed.
+
 ## 4. Validate declared startup roots
 
 A structural root checks constructor edges without running its provider. An eager root resolves after structural validation passes. Put the root policy on the binding that owns the startup work.
