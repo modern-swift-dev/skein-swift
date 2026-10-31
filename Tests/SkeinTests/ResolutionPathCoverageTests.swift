@@ -109,7 +109,8 @@ import XCTest
 
     // MARK: Isolation and type errors
 
-    func testMainActorGetRejectsCustomActorBindings() throws {
+    // swiftformat:disable:next redundantAsync
+    func testMainActorGetRejectsCustomActorBindings() async throws {
         let application = try SkeinApplication {
             module {
                 actorSingle(ActorOnly.self, isolatedTo: LifecycleTestActor.self) { @LifecycleTestActor _ in ActorOnly() }
@@ -145,7 +146,8 @@ import XCTest
         }
     }
 
-    func testEagerAssistedRootIsRejectedAtApplicationConstruction() {
+    // swiftformat:disable:next redundantAsync
+    func testEagerAssistedRootIsRejectedAtApplicationConstruction() async {
         XCTAssertThrowsError(
             try SkeinApplication {
                 module {
@@ -161,7 +163,8 @@ import XCTest
         }
     }
 
-    func testProviderValueOfWrongTypeFailsWithResolvedTypeMismatch() throws {
+    // swiftformat:disable:next redundantAsync
+    func testProviderValueOfWrongTypeFailsWithResolvedTypeMismatch() async throws {
         let application = try SkeinApplication {
             Module(bindings: [
                 Binding(

@@ -32,7 +32,8 @@ import XCTest
         nonisolatedInstance(Clock(tick: 1))
     }
 
-    func testNonisolatedSingleConstructorResolvesDependenciesOnce() throws {
+    // swiftformat:disable:next redundantAsync
+    func testNonisolatedSingleConstructorResolvesDependenciesOnce() async throws {
         let constructions = LockedCounter()
         let application = try SkeinApplication {
             dependencies
@@ -53,7 +54,8 @@ import XCTest
         XCTAssertEqual(constructions.value, 1)
     }
 
-    func testNonisolatedAssistedFactoryConstructorPassesArgumentsAndDependencies() throws {
+    // swiftformat:disable:next redundantAsync
+    func testNonisolatedAssistedFactoryConstructorPassesArgumentsAndDependencies() async throws {
         let application = try SkeinApplication {
             dependencies
             module {
@@ -109,7 +111,8 @@ import XCTest
         XCTAssertEqual(assisted.clock.tick, 1)
     }
 
-    func testConstructorVariantsRecordEveryDependencyEdge() throws {
+    // swiftformat:disable:next redundantAsync
+    func testConstructorVariantsRecordEveryDependencyEdge() async throws {
         let variants: [(name: String, root: @MainActor () -> Binding, service: String)] = [
             ("nonisolatedSingle", {
                 nonisolatedSingle(Service.self) { (config: Config, clock: Clock) in Service(config: config, clock: clock) }.root()

@@ -47,7 +47,8 @@ import XCTest
         XCTAssertEqual(assisted, Greeting(text: "hello skein"))
     }
 
-    func testGlobalNonisolatedGetResolvesAssistedBinding() throws {
+    // swiftformat:disable:next redundantAsync
+    func testGlobalNonisolatedGetResolvesAssistedBinding() async throws {
         try startSkein {
             module {
                 nonisolatedFactory(Greeting.self, arguments: String.self, provider: { _, name in Greeting(text: "hi \(name)") })
@@ -88,7 +89,8 @@ import XCTest
         XCTAssertEqual(greeting, Greeting(text: "first"))
     }
 
-    func testStartSkeinBuilderSupportsConditionalAndOptionalModules() throws {
+    // swiftformat:disable:next redundantAsync
+    func testStartSkeinBuilderSupportsConditionalAndOptionalModules() async throws {
         let includeFormal = true
         let useEnglish = false
         let optionalModule: Module? = module { nonisolatedInstance(Greeting(text: "optional"), qualifier: GreetingQualifier.formal) }

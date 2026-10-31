@@ -100,7 +100,8 @@ import XCTest
         await application.close()
     }
 
-    func testEagerScopeRootIsRejectedAtApplicationConstruction() {
+    // swiftformat:disable:next redundantAsync
+    func testEagerScopeRootIsRejectedAtApplicationConstruction() async {
         XCTAssertThrowsError(
             try SkeinApplication {
                 module {

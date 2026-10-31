@@ -6,7 +6,8 @@ import XCTest
         let name: String
     }
 
-    func testIfBlockIncludesModuleOnlyWhenConditionHolds() throws {
+    // swiftformat:disable:next redundantAsync
+    func testIfBlockIncludesModuleOnlyWhenConditionHolds() async throws {
         for include in [true, false] {
             let application = try SkeinApplication {
                 module { nonisolatedInstance(Mode(name: "base")) }
@@ -24,7 +25,8 @@ import XCTest
         }
     }
 
-    func testIfElseBlockSelectsOneBranch() throws {
+    // swiftformat:disable:next redundantAsync
+    func testIfElseBlockSelectsOneBranch() async throws {
         for useFirst in [true, false] {
             let application = try SkeinApplication {
                 if useFirst {
@@ -38,7 +40,8 @@ import XCTest
         }
     }
 
-    func testOptionalModuleIsIncludedOnlyWhenPresent() throws {
+    // swiftformat:disable:next redundantAsync
+    func testOptionalModuleIsIncludedOnlyWhenPresent() async throws {
         let modules: [Module?] = [module { nonisolatedInstance(Mode(name: "optional")) }, nil]
         for optional in modules {
             let application = try SkeinApplication {
