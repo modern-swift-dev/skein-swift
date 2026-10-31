@@ -18,7 +18,11 @@ let service: FeatureService = try get()
 
 ## Declared roots and validated startup
 
-Attach root policy to the binding that owns it. Structural roots validate constructor metadata without executing providers. Eager roots are structurally validated first, then resolved sequentially in declaration order.
+Attach root policy to the binding that owns it. Validated startup walks the dependency graph from every *declared root*:
+
+- A *structural root* (`.root()` or `.root(.structural)`) is checked from constructor metadata without creating any service.
+- An *eager root* (`.root(.eager)`) is structurally validated first, then resolved sequentially in declaration order. Only single and factory bindings may be eager roots.
+- A *scope root* is a structural root on a scoped binding. It is validated from the point of view of its scope kind: its dependencies resolve to scoped bindings of the same kind first, then to single and factory bindings, as they do at runtime.
 
 ```swift
 let featureModule = module {
@@ -44,7 +48,24 @@ let installed = try await startSkeinIfNeeded(validation: .declaredRoots) {
 
 After global publication, `currentSkeinValidationReport` exposes the installed application's report under the lifecycle lock and returns `nil` after stop.
 
-Opaque closure providers appear in the validation report but are not failures. Constructor registrations expose all parameter-pack edges. Scoped roots and eager assisted roots are rejected; structural assisted roots are allowed.
+Opaque closure providers appear in the validation report but are not failures. Constructor registrations expose all parameter-pack edges. Structural assisted roots are allowed; eager assisted roots are rejected with `SkeinError.eagerAssistedRoot`.
+
+### Scope roots
+
+Mark a scoped binding as a structural root to validate its graph at startup. No provider runs, and the scope root is reported like any other root.
+
+```swift
+let sessionModule = module {
+    scoped(SessionScope.self, SessionModel.self) { resolver in
+        SessionModel(api: try resolver.get())
+    }
+    .root()
+}
+```
+
+Where dependency edges are known, a missing dependency fails with `GraphValidationError.missingBinding`, a dependency on another scope kind's binding fails with `crossScopeDependency`, and an isolation violation fails with `isolationMismatch`. Scoped registrations take closure providers, which are opaque: the scope root above appears in `opaqueBindings`, and its dependencies are not traversed.
+
+Scope roots cannot be eager, because no scope exists at startup: `.root(.eager)` on a scoped binding makes application construction throw `SkeinError.eagerScopedRoot`. A single or factory root that depends on a scoped binding still fails with `GraphValidationError.rootDependsOnScopedBinding`.
 
 ## Errors and diagnostics
 

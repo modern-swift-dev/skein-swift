@@ -49,7 +49,8 @@ package final class Container: Resolver, @unchecked Sendable {
     /// Creates a container from a collection of binding modules.
     ///
     /// - Parameter modules: The modules whose bindings the container owns.
-    /// - Throws: A configuration error when bindings conflict or declare an invalid root or isolation.
+    /// - Throws: A configuration error when bindings conflict or declare an invalid root or isolation,
+    ///   including ``SkeinError/eagerScopedRoot(type:qualifier:)`` for an eager scoped root.
     package init(modules: [Module]) throws {
         var collected: [BindingKey: [Binding]] = [:]
         var roots: [Binding] = []
@@ -76,8 +77,9 @@ package final class Container: Resolver, @unchecked Sendable {
                     )
                 }
                 try Self.validateDynamicIsolation(of: binding)
-                if binding.rootPolicy != nil, !binding.lifetime.isRoot {
-                    throw SkeinError.scopedBindingCannotBeRoot(
+                // Scope roots are validated structurally; no scope exists at startup to create them in.
+                if binding.rootPolicy == .eager, !binding.lifetime.isRoot {
+                    throw SkeinError.eagerScopedRoot(
                         type: binding.key.typeName,
                         qualifier: binding.key.qualifier?.description
                     )
@@ -694,6 +696,9 @@ package final class Container: Resolver, @unchecked Sendable {
 
     /// Validates the dependency graphs reachable from declared roots.
     ///
+    /// Scope roots are validated from the point of view of their scope kind: their dependencies
+    /// resolve to same-kind scoped bindings first, then to single and factory bindings.
+    ///
     /// - Returns: A report describing bindings that could not be validated statically.
     /// - Throws: A graph configuration error such as a missing binding, invalid lifetime, or cycle.
     package func validateGraph() throws -> GraphValidationReport {
@@ -702,11 +707,6 @@ package final class Container: Resolver, @unchecked Sendable {
         var active: Set<ValidationNodeIdentity> = []
         var path: [BindingKey] = []
         for root in declaredRoots {
-            guard root.lifetime.isRoot else {
-                throw SkeinError.scopedBindingCannotBeRoot(
-                    type: root.key.typeName, qualifier: root.key.qualifier?.description
-                )
-            }
             if root.rootPolicy == .eager, root.key.argumentType != nil {
                 throw SkeinError.eagerAssistedRoot(
                     type: root.key.typeName, qualifier: root.key.qualifier?.description

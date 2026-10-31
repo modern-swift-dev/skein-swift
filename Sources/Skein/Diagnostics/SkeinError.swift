@@ -13,10 +13,17 @@ public enum SkeinError: Error, Equatable, Sendable {
     case bindingIsolationMismatch(type: String, qualifier: String?, required: String, actual: String)
     /// A dynamically registered actor does not match the actor required by the binding.
     case actorIsolationMismatch(type: String, qualifier: String?, expected: String, actual: String?)
-    /// A scoped binding was declared as an application root.
-    case scopedBindingCannotBeRoot(type: String, qualifier: String?)
     /// An assisted binding was declared as an eager application root.
     case eagerAssistedRoot(type: String, qualifier: String?)
+    /// A scoped binding was declared as an eager root.
+    ///
+    /// No scope exists during startup, so a scope root can only be structural:
+    /// declare it with `.root(.structural)` or `.root()`. Thrown when the application is constructed.
+    ///
+    /// - Parameters:
+    ///   - type: The fully qualified name of the scoped service type.
+    ///   - qualifier: The qualifier description, or `nil` for an unqualified binding.
+    case eagerScopedRoot(type: String, qualifier: String?)
     /// Resolution encountered a dependency cycle along the supplied path.
     case circularDependency(path: [String])
     /// A provider returned a value whose type differs from the registered service type.

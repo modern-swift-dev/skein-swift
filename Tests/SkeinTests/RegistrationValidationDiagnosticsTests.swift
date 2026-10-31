@@ -159,7 +159,7 @@ private final class RegistrationSelfCycle { init() {} }
         }
     }
 
-    func testScopedBindingCannotBeDeclaredAsApplicationRoot() async throws {
+    func testScopedBindingCannotBeDeclaredAsEagerRoot() async throws {
         let source = SkeinSourceLocation(fileID: #fileID, line: #line)
         let parent = Binding(
             key: BindingKey(RegistrationOne.self, qualifier: nil),
@@ -171,16 +171,17 @@ private final class RegistrationSelfCycle { init() {} }
             provider: .mainActor { _ in RegistrationOne(RegistrationD1()) },
             source: source,
             dependencies: [.init(RegistrationD1.self)],
-            rootPolicy: .structural,
+            rootPolicy: .eager,
             rootSource: source
         )
         let definition = Module(bindings: [parent])
 
         XCTAssertThrowsError(try SkeinApplication { definition }) { error in
-            guard case .scopedBindingCannotBeRoot = error as? SkeinError else {
+            guard case .eagerScopedRoot = error as? SkeinError else {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
+        XCTAssertNoThrow(try SkeinApplication { Module(bindings: [parent.root(.structural)]) })
     }
 
     func testValidationDetectsMissingBindingAndKnownCycle() async throws {

@@ -53,7 +53,12 @@ public struct Binding {
         self.rootSource = rootSource
     }
 
-    /// Declares this binding as a structural or eager application root.
+    /// Declares this binding as a structural or eager root.
+    ///
+    /// Single and factory bindings may be structural or eager roots. A scoped binding may be a
+    /// structural *scope root*, validated from the point of view of its scope kind. Declaring a
+    /// scoped binding as an eager root makes application construction throw
+    /// ``SkeinError/eagerScopedRoot(type:qualifier:)``, because no scope exists at startup.
     ///
     /// - Parameters:
     ///   - policy: The validation policy to apply to the root.
