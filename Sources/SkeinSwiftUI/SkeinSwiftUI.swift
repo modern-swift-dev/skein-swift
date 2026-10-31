@@ -56,69 +56,11 @@
     @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) public struct SkeinStateObject<Model: ObservableObject>: @preconcurrency DynamicProperty {
         @Environment(\.skeinApplication) private var application
         @StateObject private var storage: Storage<Model>
+        private let request: ResolutionRequest<Model>
 
-        private let configuration: Configuration
-        private let usesApplication: Bool
-        private let resolve: (SkeinApplication) throws -> Model
-
-        /// Resolves an ordinary Skein binding.
-        private init(resolving qualifier: (any SkeinQualifier)?) {
-            #if DEBUG
-                configuration = Configuration(
-                    source: .resolution,
-                    qualifier: qualifier.map(QualifierSnapshot.init),
-                    argumentsDescription: nil,
-                    argumentsType: nil
-                )
-            #else
-                configuration = Configuration()
-            #endif
-            usesApplication = true
-            resolve = { application in
-                try application.get(Model.self, qualifier: qualifier)
-            }
-            _storage = StateObject(wrappedValue: Storage())
-        }
-
-        /// Resolves a typed assisted-factory binding.
-        private init<Arguments>(
-            resolving arguments: Arguments,
-            qualifier: (any SkeinQualifier)? = nil
-        ) {
-            #if DEBUG
-                configuration = Configuration(
-                    source: .resolution,
-                    qualifier: qualifier.map(QualifierSnapshot.init),
-                    argumentsDescription: String(reflecting: arguments),
-                    argumentsType: ObjectIdentifier(Arguments.self)
-                )
-            #else
-                configuration = Configuration()
-            #endif
-            usesApplication = true
-            resolve = { application in
-                try application.get(Model.self, arguments: arguments, qualifier: qualifier)
-            }
-            _storage = StateObject(wrappedValue: Storage())
-        }
-
-        private init(instance model: Model) {
-            #if DEBUG
-                let configuration = Configuration(
-                    source: .instance(ObjectIdentifier(model)),
-                    qualifier: nil,
-                    argumentsDescription: nil,
-                    argumentsType: nil
-                )
-            #else
-                let configuration = Configuration()
-            #endif
-            self.configuration = configuration
-            usesApplication = false
-            resolve = { _ in model }
-            _storage = StateObject(
-                wrappedValue: Storage(result: .success(model), configuration: configuration)
-            )
+        private init(request: ResolutionRequest<Model>) {
+            self.request = request
+            _storage = StateObject(wrappedValue: Storage(request: request))
         }
 
         /// Configures this property to resolve an ordinary binding from the surrounding Skein application.
@@ -131,7 +73,7 @@
         public static func resolving(
             qualifier: (any SkeinQualifier)? = nil
         ) -> Self {
-            Self(resolving: qualifier)
+            Self(request: .plain(qualifier: qualifier))
         }
 
         /// Configures this property to resolve an assisted binding from the surrounding Skein application.
@@ -147,7 +89,7 @@
             arguments: some Any,
             qualifier: (any SkeinQualifier)? = nil
         ) -> Self {
-            Self(resolving: arguments, qualifier: qualifier)
+            Self(request: .assisted(arguments: arguments, qualifier: qualifier))
         }
 
         /// Retains an explicitly supplied model without consulting the environment.
@@ -155,17 +97,17 @@
         /// - Parameter model: The observable object to retain.
         /// - Returns: A property-wrapper value containing `model`.
         public static func instance(_ model: Model) -> Self {
-            Self(instance: model)
+            Self(request: .instance(model))
         }
 
         /// The retained model, or `nil` before resolution or after a resolution failure.
         public var wrappedValue: Model? {
-            storage.result?.success
+            storage.state.model
         }
 
         /// The retained resolution result, including failures, or `nil` before SwiftUI updates the property.
         public var projectedValue: Result<Model, Error>? {
-            storage.result
+            storage.state.result
         }
 
         /// Performs the property's deferred resolution when SwiftUI updates it.
@@ -175,77 +117,26 @@
         /// A ``SkeinSwiftUIError/missingApplication`` failure is the exception: it is
         /// replaced by a new resolution once an application appears in the environment.
         public mutating func update() {
-            storage.resolveIfNeeded(
-                application: usesApplication ? application : nil,
-                configuration: configuration,
-                resolve: resolve
-            )
+            storage.resolveIfNeeded(application: application, request: request)
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private extension Result where Failure == Error {
-        var success: Success? {
-            guard case let .success(value) = self else {
-                return nil
-            }
-            return value
-        }
-
-        /// Whether this result is the retryable missing-application failure.
-        var isMissingApplication: Bool {
-            guard case let .failure(error) = self else {
-                return false
-            }
-            return error as? SkeinSwiftUIError == .missingApplication
-        }
-    }
-
+    /// Retains a ``SkeinStateObject`` resolution and forwards the model's changes to SwiftUI.
     @MainActor
     @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private final class Storage<Model: ObservableObject>: @preconcurrency ObservableObject {
         let objectWillChange = ObservableObjectPublisher()
-        private(set) var result: Result<Model, Error>?
-        #if DEBUG
-            private var initialApplication: ObjectIdentifier?
-            private var initialConfiguration: Configuration?
-        #endif
+        let state: ResolutionState<Model>
         private var modelObservation: AnyCancellable?
 
-        init(
-            result: Result<Model, Error>? = nil,
-            configuration: Configuration? = nil
-        ) {
-            self.result = result
-            #if DEBUG
-                initialConfiguration = configuration
-            #endif
-            if case let .success(model)? = result {
+        init(request: ResolutionRequest<Model>) {
+            state = ResolutionState(request: request, wrapperName: "SkeinStateObject")
+            if let model = state.model {
                 observe(model)
             }
         }
 
-        func resolveIfNeeded(
-            application: SkeinApplication?,
-            configuration: Configuration,
-            resolve: (SkeinApplication) throws -> Model
-        ) {
-            if let result, !(result.isMissingApplication && application != nil) {
-                #if DEBUG
-                    diagnoseChangedInputs(application: application, configuration: configuration)
-                #endif
-                return
-            }
-
-            #if DEBUG
-                initialApplication = application.map(ObjectIdentifier.init)
-                initialConfiguration = configuration
-            #endif
-            guard let application else {
-                result = .failure(SkeinSwiftUIError.missingApplication)
-                return
-            }
-            let result = Result { try resolve(application) }
-            self.result = result
-            if case let .success(model) = result {
+        func resolveIfNeeded(application: SkeinApplication?, request: ResolutionRequest<Model>) {
+            if let model = state.resolveIfNeeded(application: application, request: request) {
                 observe(model)
             }
         }
@@ -268,41 +159,5 @@
                 }
             }
         }
-
-        #if DEBUG
-            private func diagnoseChangedInputs(application: SkeinApplication?, configuration: Configuration) {
-                guard initialApplication != application.map(ObjectIdentifier.init) || initialConfiguration != configuration else {
-                    return
-                }
-                debugPrint("SkeinStateObject retained its original resolution because its Skein application or arguments changed. Use .id(...) to replace it.")
-            }
-        #endif
     }
-
-    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct Configuration: Equatable {
-        #if DEBUG
-            let source: Source
-            let qualifier: QualifierSnapshot?
-            let argumentsDescription: String?
-            let argumentsType: ObjectIdentifier?
-        #endif
-
-    }
-
-    #if DEBUG
-        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private enum Source: Equatable {
-            case resolution
-            case instance(ObjectIdentifier)
-        }
-
-        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct QualifierSnapshot: Equatable {
-            let type: ObjectIdentifier
-            let value: String
-
-            init(_ qualifier: any SkeinQualifier) {
-                type = ObjectIdentifier(Swift.type(of: qualifier))
-                value = String(reflecting: qualifier)
-            }
-        }
-    #endif
 #endif
