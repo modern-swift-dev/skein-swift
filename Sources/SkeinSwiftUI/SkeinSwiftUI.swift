@@ -46,6 +46,11 @@
     /// The resolution result is retained for the lifetime of this property's SwiftUI
     /// identity. To resolve again with a new application or argument value, give the
     /// enclosing view a new identity with `.id(...)`.
+    ///
+    /// The only exception is ``SkeinSwiftUIError/missingApplication``: when an update runs
+    /// before any application is in the environment, the property resolves again on the
+    /// first later update that finds one. Successful results and provider failures stay
+    /// retained, so a failing provider is not run again on every render.
     @MainActor
     @propertyWrapper
     @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) public struct SkeinStateObject<Model: ObservableObject>: @preconcurrency DynamicProperty {
@@ -167,6 +172,8 @@
         ///
         /// The first result is retained for this property's SwiftUI identity. Later updates
         /// do not resolve again when the application, qualifier, or arguments change.
+        /// A ``SkeinSwiftUIError/missingApplication`` failure is the exception: it is
+        /// replaced by a new resolution once an application appears in the environment.
         public mutating func update() {
             storage.resolveIfNeeded(
                 application: usesApplication ? application : nil,
@@ -182,6 +189,14 @@
                 return nil
             }
             return value
+        }
+
+        /// Whether this result is the retryable missing-application failure.
+        var isMissingApplication: Bool {
+            guard case let .failure(error) = self else {
+                return false
+            }
+            return error as? SkeinSwiftUIError == .missingApplication
         }
     }
 
@@ -213,7 +228,7 @@
             configuration: Configuration,
             resolve: (SkeinApplication) throws -> Model
         ) {
-            if result != nil {
+            if let result, !(result.isMissingApplication && application != nil) {
                 #if DEBUG
                     diagnoseChangedInputs(application: application, configuration: configuration)
                 #endif
