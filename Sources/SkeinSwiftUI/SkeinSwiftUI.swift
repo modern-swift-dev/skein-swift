@@ -236,9 +236,20 @@
         }
 
         private func observe(_ model: Model) {
-            modelObservation = model.objectWillChange.sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.objectWillChange.send()
+            // Forward synchronously on the main thread so SwiftUI sees the change
+            // before the mutation, preserving transaction and animation context.
+            // Models that publish from another thread are forwarded with a main-actor hop.
+            modelObservation = model.objectWillChange.sink { @Sendable [weak self] _ in
+                if Thread.isMainThread {
+                    MainActor.assumeIsolated {
+                        self?.objectWillChange.send()
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        MainActor.assumeIsolated {
+                            self?.objectWillChange.send()
+                        }
+                    }
                 }
             }
         }

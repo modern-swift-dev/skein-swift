@@ -1,4 +1,5 @@
 #if canImport(AppKit) || (canImport(UIKit) && !os(watchOS))
+    import Combine
     import Skein
     import SkeinSwiftUI
     import SwiftUI
@@ -121,6 +122,91 @@
             model.value = 2
             host.layout()
             wait(for: [changed], timeout: 1)
+        }
+
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
+        @MainActor func testMainThreadModelChangeInvalidatesViewSynchronously() {
+            let model = TestModel(value: 1)
+            let recorder = BodyRecorder()
+            let host = TestViewHost(rootView: RenderProbeView(model: model, recorder: recorder))
+            defer { host.close() }
+            host.layout()
+            XCTAssertEqual(recorder.values.last, 1)
+
+            model.value = 2
+            host.layout()
+
+            XCTAssertEqual(recorder.values.last, 2, "The view must observe a main-thread change without waiting for a later run-loop turn")
+        }
+
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
+        @MainActor func testBackgroundModelChangeIsForwardedOnMainActor() {
+            let model = BackgroundPublishingModel()
+            let recorder = BodyRecorder()
+            let host = TestViewHost(rootView: BackgroundRenderProbeView(model: model, recorder: recorder))
+            defer { host.close() }
+            host.layout()
+            let initialRenders = recorder.values.count
+            XCTAssertGreaterThan(initialRenders, 0)
+
+            let rerendered = expectation(description: "view rendered after a background change")
+            rerendered.assertForOverFulfill = false
+            recorder.onRecord = {
+                XCTAssertTrue(Thread.isMainThread)
+                rerendered.fulfill()
+            }
+            DispatchQueue.global().async {
+                model.objectWillChange.send()
+            }
+            wait(for: [rerendered], timeout: 1)
+        }
+    }
+
+    @MainActor private final class BodyRecorder {
+        private(set) var values: [Int?] = []
+        var onRecord: (() -> Void)?
+
+        func record(_ value: Int?) {
+            values.append(value)
+            onRecord?()
+        }
+    }
+
+    /// Publishes changes from arbitrary threads.
+    ///
+    /// `@unchecked Sendable` is justified because the model holds no state besides its
+    /// publisher, and `ObservableObjectPublisher.send()` may be called from any thread.
+    private final class BackgroundPublishingModel: ObservableObject, @unchecked Sendable {
+        let objectWillChange = ObservableObjectPublisher()
+    }
+
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct BackgroundRenderProbeView: View {
+        @SkeinStateObject<BackgroundPublishingModel> private var model: BackgroundPublishingModel?
+        let recorder: BodyRecorder
+
+        @MainActor init(model: BackgroundPublishingModel, recorder: BodyRecorder) {
+            _model = .instance(model)
+            self.recorder = recorder
+        }
+
+        var body: some View {
+            recorder.record(nil)
+            return Text(model == nil ? "missing" : "present")
+        }
+    }
+
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct RenderProbeView: View {
+        @SkeinStateObject<TestModel> private var model: TestModel?
+        let recorder: BodyRecorder
+
+        @MainActor init(model: TestModel, recorder: BodyRecorder) {
+            _model = .instance(model)
+            self.recorder = recorder
+        }
+
+        var body: some View {
+            recorder.record(model?.value)
+            return Text("\(model?.value ?? 0)")
         }
     }
 
