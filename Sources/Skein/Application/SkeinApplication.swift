@@ -135,6 +135,10 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
 
     /// Creates a main-actor scope instance owned by this application.
     ///
+    /// The application keeps a strong reference to the scope, and to the services it caches,
+    /// until the scope is closed or the application closes. Close each scope when its work
+    /// finishes; a scope that is never closed stays in memory for the application's lifetime.
+    ///
     /// - Parameters:
     ///   - type: The scope kind to create.
     ///   - id: A stable identity for the scope instance.
@@ -155,7 +159,11 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
     /// scoped binding in this scope kind before creating the scope.
     ///
     /// The seeded value is cached without calling that binding's provider, and the
-    /// binding's disposer runs when the scope closes. Close the scope when its work finishes.
+    /// binding's disposer runs when the scope closes.
+    ///
+    /// The application keeps a strong reference to the scope, and to the services it caches,
+    /// until the scope is closed or the application closes. Close each scope when its work
+    /// finishes; a scope that is never closed stays in memory for the application's lifetime.
     ///
     /// ```swift
     /// let session: any Session = LiveSession()
@@ -191,6 +199,10 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
     /// The seed is keyed by the argument's static type. When `service` is an existential
     /// such as `any Session`, Swift opens it to its concrete type, so the seed misses a
     /// protocol-typed binding. Use ``createScope(_:id:seeding:as:qualifier:)`` instead.
+    ///
+    /// The application keeps a strong reference to the scope, and to the services it caches,
+    /// until the scope is closed or the application closes. Close each scope when its work
+    /// finishes; a scope that is never closed stays in memory for the application's lifetime.
     ///
     /// - Parameters:
     ///   - type: The scope kind to create.

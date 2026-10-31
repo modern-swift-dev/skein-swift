@@ -292,6 +292,11 @@ public final class SkeinScopeInstance<Kind: SkeinScope>: Resolver, ScopeStorage,
     /// Closing is idempotent. Concurrent callers wait for the first close operation to finish,
     /// and subsequent resolution attempts, including inherited root bindings, fail because the scope is closed.
     /// Cached references are released as each instance finishes disposal.
+    ///
+    /// Until it is closed, the scope is owned by the application that created it: the application
+    /// keeps the scope and its cached services in memory even when no caller references the scope.
+    /// Closing detaches the scope from its application. Closing the application closes any scopes
+    /// that are still open, so their disposers always run eventually.
     public func close() async {
         let owner = ObjectIdentifier(self)
         if DisposalContext.owners.contains(owner) {

@@ -86,6 +86,10 @@ let scope = try application.createScope(
 )
 ```
 
+### Scope ownership
+
+An application owns every scope it creates until that scope is closed. It keeps the scope and its cached services in memory even when no caller still references the scope, which guarantees that their disposers eventually run. Close each scope when its work finishes: in a long-running app, scopes that are never closed accumulate until the application closes. Closing the application closes any scopes that are still open.
+
 ## Async disposal
 
 `single` and `scoped` accept MainActor asynchronous `onClose` callbacks. Their `nonisolated...` and `actor...` counterparts retain the selected isolation. `close()` is async, idempotent, and disposes successfully created values once in reverse creation order. The owning application or scope releases each cached reference after its disposal finishes, so disposed values need not remain in memory while later callbacks run. References retained by callers or other services still determine when a value is deallocated.
