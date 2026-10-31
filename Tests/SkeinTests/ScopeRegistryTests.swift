@@ -16,13 +16,13 @@ import XCTest
         }
         var scopes: [SkeinScopeInstance<SeededScope>] = []
         for id in 0 ..< 128 {
-            let scope = try application.createScope(SeededScope.self, id: id, seeding: id)
+            let scope = try application.createScope(SeededScope.self, id: id, seeding: id, as: Int.self)
             scopes.append(scope)
         }
         for id in stride(from: 0, to: 128, by: 2) {
             await scopes[id].close()
         }
-        let replacement = try application.createScope(SeededScope.self, id: 0, seeding: 128)
+        let replacement = try application.createScope(SeededScope.self, id: 0, seeding: 128, as: Int.self)
         XCTAssertEqual(try replacement.get(Int.self), 128)
         await application.close()
 

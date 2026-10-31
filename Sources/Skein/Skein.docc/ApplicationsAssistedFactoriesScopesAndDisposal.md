@@ -69,7 +69,22 @@ Once closing begins, all resolution through that scope fails, including inherite
 
 Only one active `(scope type, ID)` pair is allowed; closing it permits a replacement with the same ID. Scopes are flat: one scope cannot depend on bindings from another scope, and root bindings cannot depend on scoped bindings.
 
-To supply an existing Sendable value, use `application.createScope(_:id:seeding:)`. Register an unqualified scoped binding for that value's static type in the same scope kind first. The seed replaces the provider result for this scope, and the binding's disposer runs when the scope closes. This lets integrations inject an externally created context while preserving scope ownership and cleanup.
+To supply an existing Sendable value, use `application.createScope(_:id:seeding:as:qualifier:)`. Register a scoped binding for the service type in the same scope kind first, and name that type with `as:`, plus its qualifier when the binding is qualified. The seed replaces the provider result for this scope, and the binding's disposer runs when the scope closes. This lets integrations inject an externally created context while preserving scope ownership and cleanup.
+
+```swift
+protocol Session: Sendable { }
+final class LiveSession: Session { }
+
+let definitions = module {
+    nonisolatedScoped(UserScope.self, (any Session).self) { _ in LiveSession() }
+}
+
+let application = try SkeinApplication { definitions }
+let session: any Session = LiveSession()
+let scope = try application.createScope(
+    UserScope.self, id: "user-42", seeding: session, as: (any Session).self
+)
+```
 
 ## Async disposal
 

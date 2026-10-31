@@ -644,12 +644,16 @@ package final class Container: Resolver, @unchecked Sendable {
     ///   - type: The kind of scope to create.
     ///   - id: The identifier for the scope instance.
     ///   - service: The service instance to place in the scope cache.
+    ///   - serviceType: The service type whose scoped binding receives the seed.
+    ///   - qualifier: The qualifier selecting the scoped binding, or `nil` for an unqualified binding.
     /// - Returns: The newly created scope.
     /// - Throws: An application-lifecycle, duplicate-scope, or missing-binding error.
     package func createScope<Kind: SkeinScope, Service: Sendable>(
         _ type: Kind.Type,
         id: some Hashable & Sendable,
-        seeding service: Service
+        seeding service: Service,
+        as serviceType: Service.Type,
+        qualifier: (any SkeinQualifier)?
     ) throws -> SkeinScopeInstance<Kind> {
         try lock.withLock {
             try ensureActive()
@@ -657,7 +661,7 @@ package final class Container: Resolver, @unchecked Sendable {
             guard scopes[identity] == nil else {
                 throw SkeinError.duplicateScope(scope: identity.typeName, id: identity.idDescription)
             }
-            let key = BindingKey(Service.self, qualifier: nil)
+            let key = BindingKey(serviceType, qualifier: qualifier)
             guard let binding = bindings[key]?.first(where: {
                 if case let .scoped(scopeType, _) = $0.lifetime {
                     return scopeType == ObjectIdentifier(type)

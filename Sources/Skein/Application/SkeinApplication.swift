@@ -149,10 +149,48 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
 
     /// Creates a scope instance seeded with a Sendable service.
     ///
-    /// Register an unqualified scoped binding for the service's static type in
-    /// this scope kind before creating the scope. The seeded value is cached
-    /// without calling that binding's provider. Its registered disposer runs
-    /// when the scope closes. Close the scope when its work finishes.
+    /// The seed is keyed by `serviceType` and `qualifier`, so pass the type of the
+    /// scoped binding that should receive it. For a protocol-typed binding, pass the
+    /// existential type, for example `as: (any Session).self`. Register a matching
+    /// scoped binding in this scope kind before creating the scope.
+    ///
+    /// The seeded value is cached without calling that binding's provider, and the
+    /// binding's disposer runs when the scope closes. Close the scope when its work finishes.
+    ///
+    /// ```swift
+    /// let session: any Session = LiveSession()
+    /// let scope = try application.createScope(
+    ///     SessionScope.self, id: 1, seeding: session, as: (any Session).self
+    /// )
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - type: The scope kind to create.
+    ///   - id: A stable identity for the scope instance.
+    ///   - service: The initial service value stored in the scope.
+    ///   - serviceType: The service type of the scoped binding that receives the seed.
+    ///   - qualifier: The qualifier of the scoped binding that receives the seed, or `nil`
+    ///     for an unqualified binding.
+    /// - Returns: The newly created scope instance.
+    /// - Throws: ``SkeinError/applicationClosed`` if the application is closing or closed,
+    ///   ``SkeinError/duplicateScope(scope:id:)`` if a scope with the same kind and identity
+    ///   is active, or ``SkeinError/missingBinding(type:qualifier:)`` if no scoped binding
+    ///   for `serviceType` and `qualifier` is registered in this scope kind.
+    public func createScope<Kind: SkeinScope, Service: Sendable>(
+        _ type: Kind.Type,
+        id: some Hashable & Sendable,
+        seeding service: Service,
+        as serviceType: Service.Type,
+        qualifier: (any SkeinQualifier)? = nil
+    ) throws -> SkeinScopeInstance<Kind> {
+        try container.createScope(type, id: id, seeding: service, as: serviceType, qualifier: qualifier)
+    }
+
+    /// Creates a scope instance seeded with a Sendable service, keyed by its static type.
+    ///
+    /// The seed is keyed by the argument's static type. When `service` is an existential
+    /// such as `any Session`, Swift opens it to its concrete type, so the seed misses a
+    /// protocol-typed binding. Use ``createScope(_:id:seeding:as:qualifier:)`` instead.
     ///
     /// - Parameters:
     ///   - type: The scope kind to create.
@@ -160,13 +198,14 @@ public final class SkeinApplication: Resolver, @unchecked Sendable {
     ///   - service: The initial service value stored in the scope.
     /// - Returns: The newly created scope instance.
     /// - Throws: A Skein error if the application is closed, the scope identity
-    ///   already exists, or the matching scoped binding is missing.
-    public func createScope<Kind: SkeinScope>(
+    ///   already exists, or the matching unqualified scoped binding is missing.
+    @available(*, deprecated, message: "Use createScope(_:id:seeding:as:qualifier:) to name the seeded binding's type explicitly.")
+    public func createScope<Kind: SkeinScope, Service: Sendable>(
         _ type: Kind.Type,
         id: some Hashable & Sendable,
-        seeding service: some Sendable
+        seeding service: Service
     ) throws -> SkeinScopeInstance<Kind> {
-        try container.createScope(type, id: id, seeding: service)
+        try container.createScope(type, id: id, seeding: service, as: Service.self, qualifier: nil)
     }
 
     /// Structurally validates every binding marked as an application root.
