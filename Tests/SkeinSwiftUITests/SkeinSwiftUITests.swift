@@ -5,7 +5,7 @@
     import XCTest
 
     final class SkeinSwiftUITests: XCTestCase {
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
         @MainActor func testMissingEnvironmentIsRepresentedAsTypedFailure() {
             let appeared = expectation(description: "view appeared")
             let host = TestViewHost(rootView: ProbeView { model, result in
@@ -22,7 +22,7 @@
             wait(for: [appeared], timeout: 1)
         }
 
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
         @MainActor func testAssistedInitializerCanRetainMissingEnvironmentFailure() {
             let appeared = expectation(description: "view appeared")
             let host = TestViewHost(rootView: AssistedProbeView(arguments: 42) { model, result in
@@ -39,7 +39,7 @@
             wait(for: [appeared], timeout: 1)
         }
 
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
         @MainActor func testEnvironmentModifierAcceptsAnApplication() throws {
             let definitions = Module {
                 factory(TestModel.self) { _ in TestModel() }
@@ -50,7 +50,7 @@
             _ = EmptyView().skeinApplication(application)
         }
 
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
         @MainActor func testEnvironmentResolvesAssistedModelOnce() throws {
             let application = try SkeinApplication {
                 module {
@@ -80,7 +80,7 @@
             wait(for: [appeared], timeout: 1)
         }
 
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
         @MainActor func testExplicitInstanceNeedsNoApplication() {
             let model = TestModel(value: 84)
             let appeared = expectation(description: "view appeared")
@@ -99,7 +99,7 @@
             wait(for: [appeared], timeout: 1)
         }
 
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
         @MainActor func testExplicitInstanceForwardsModelChanges() {
             let model = TestModel(value: 1)
             let appeared = expectation(description: "view appeared")
@@ -124,7 +124,7 @@
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
     @MainActor private final class TestModel: ObservableObject {
         @Published var value: Int
         init(value: Int = 0) {
@@ -132,7 +132,7 @@
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct ProbeView: View {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct ProbeView: View {
         @SkeinStateObject<TestModel> private var model: TestModel?
         let inspect: (TestModel?, Result<TestModel, Error>?) -> Void
 
@@ -146,7 +146,7 @@
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct AssistedProbeView: View {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct AssistedProbeView: View {
         @SkeinStateObject<TestModel> private var model: TestModel?
         let inspect: (TestModel?, Result<TestModel, Error>?) -> Void
 
@@ -163,7 +163,7 @@
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct ExplicitProbeView: View {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct ExplicitProbeView: View {
         @SkeinStateObject<TestModel> private var model: TestModel?
         let inspect: (TestModel?, Result<TestModel, Error>?) -> Void
 
@@ -180,7 +180,7 @@
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct ObservationProbeView: View {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct ObservationProbeView: View {
         @SkeinStateObject<TestModel> private var model: TestModel?
         let inspect: (Int?) -> Void
 

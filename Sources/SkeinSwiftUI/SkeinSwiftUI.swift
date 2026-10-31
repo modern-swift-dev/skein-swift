@@ -4,7 +4,7 @@
     import SwiftUI
 
     /// Errors produced by the SwiftUI integration layer.
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public enum SkeinSwiftUIError: Error, Equatable, LocalizedError {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) public enum SkeinSwiftUIError: Error, Equatable, LocalizedError {
         /// No application was supplied by a surrounding `skeinApplication(_:)` modifier.
         case missingApplication
 
@@ -17,11 +17,11 @@
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct SkeinApplicationEnvironmentKey: EnvironmentKey {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct SkeinApplicationEnvironmentKey: EnvironmentKey {
         static let defaultValue: SkeinApplication? = nil
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public extension EnvironmentValues {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) public extension EnvironmentValues {
         /// The nearest Skein application supplied to the view hierarchy, if any.
         var skeinApplication: SkeinApplication? {
             get { self[SkeinApplicationEnvironmentKey.self] }
@@ -29,7 +29,7 @@
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public extension View {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) public extension View {
         /// Makes an application available to this view and its descendants.
         ///
         /// Nested modifiers use SwiftUI's normal nearest-value-wins behavior.
@@ -48,7 +48,7 @@
     /// enclosing view a new identity with `.id(...)`.
     @MainActor
     @propertyWrapper
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) public struct SkeinStateObject<Model: ObservableObject>: @preconcurrency DynamicProperty {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) public struct SkeinStateObject<Model: ObservableObject>: @preconcurrency DynamicProperty {
         @Environment(\.skeinApplication) private var application
         @StateObject private var storage: Storage<Model>
 
@@ -176,7 +176,7 @@
         }
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private extension Result where Failure == Error {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private extension Result where Failure == Error {
         var success: Success? {
             guard case let .success(value) = self else {
                 return nil
@@ -186,7 +186,7 @@
     }
 
     @MainActor
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private final class Storage<Model: ObservableObject>: @preconcurrency ObservableObject {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private final class Storage<Model: ObservableObject>: @preconcurrency ObservableObject {
         let objectWillChange = ObservableObjectPublisher()
         private(set) var result: Result<Model, Error>?
         #if DEBUG
@@ -253,7 +253,7 @@
         #endif
     }
 
-    @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct Configuration: Equatable {
+    @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct Configuration: Equatable {
         #if DEBUG
             let source: Source
             let qualifier: QualifierSnapshot?
@@ -264,12 +264,12 @@
     }
 
     #if DEBUG
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private enum Source: Equatable {
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private enum Source: Equatable {
             case resolution
             case instance(ObjectIdentifier)
         }
 
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *) private struct QualifierSnapshot: Equatable {
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) private struct QualifierSnapshot: Equatable {
             let type: ObjectIdentifier
             let value: String
 

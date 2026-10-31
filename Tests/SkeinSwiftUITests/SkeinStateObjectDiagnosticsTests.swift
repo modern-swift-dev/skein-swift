@@ -19,7 +19,7 @@
 
         private final class Model: ObservableObject {}
 
-        @available(iOS 17, tvOS 17, macOS 14, watchOS 10, visionOS 1, *)
+        @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *)
         @MainActor func testArgumentDescriptionsAreOnlyEvaluatedInDebugBuilds() {
             let counter = DescriptionCounter()
 
