@@ -134,17 +134,24 @@ public var currentSkeinValidationReport: GraphValidationReport? {
     let task = Task<SkeinApplication, Error> { @MainActor in
         do {
             let candidate = try await SkeinApplication(validation: validation) { modules }
-            try Task.checkCancellation()
-            let published = GlobalSkein.lock.withLock {
-                guard case let .starting(startup) = GlobalSkein.state,
-                      startup.token == token else {
-                    return false
+            do {
+                try Task.checkCancellation()
+                let published = GlobalSkein.lock.withLock {
+                    guard case let .starting(startup) = GlobalSkein.state,
+                          startup.token == token else {
+                        return false
+                    }
+                    GlobalSkein.state = .started(candidate)
+                    return true
                 }
-                GlobalSkein.state = .started(candidate)
-                return true
-            }
-            guard published else {
-                throw CancellationError()
+                guard published else {
+                    throw CancellationError()
+                }
+            } catch {
+                // An unpublished candidate is never reachable again; dispose of
+                // services created by its eager roots before reporting cancellation.
+                await candidate.close()
+                throw error
             }
             return candidate
         } catch {

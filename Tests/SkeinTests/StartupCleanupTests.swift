@@ -62,4 +62,41 @@ final class StartupCleanupTests: XCTestCase {
         let values = await disposals.values
         XCTAssertEqual(values, ["actor"])
     }
+
+    @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
+    @MainActor func testUnpublishedValidatedStartupClosesCandidateApplication() async throws {
+        stopSkein()
+        defer { stopSkein() }
+        let gate = LifecycleTestGate()
+        let disposals = LifecycleTestRecorder()
+        let startup = Task { @MainActor in
+            try await startSkein(validation: .declaredRoots) {
+                module {
+                    actorSingle(
+                        Int.self,
+                        isolatedTo: LifecycleTestActor.self,
+                        onClose: { @LifecycleTestActor _ in await disposals.append("actor") },
+                        provider: { @LifecycleTestActor _ in
+                            await gate.wait()
+                            return 1
+                        }
+                    ).root(.eager)
+                }
+            }
+        }
+        await gate.waitForArrivals(1)
+        // Invalidate the startup token without cancelling the startup task, so the
+        // candidate application is fully built but can no longer be published.
+        GlobalSkein.lock.withLock { GlobalSkein.state = .idle }
+        await gate.open()
+        do {
+            try await startup.value
+            XCTFail("Expected unpublished startup to throw")
+        } catch {
+            XCTAssertTrue(error is CancellationError)
+        }
+        XCTAssertFalse(isSkeinStarted)
+        let values = await disposals.values
+        XCTAssertEqual(values, ["actor"])
+    }
 }
