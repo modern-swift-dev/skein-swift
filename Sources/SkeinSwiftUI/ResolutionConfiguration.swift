@@ -24,6 +24,7 @@
             }
 
             let source: Source
+            let scope: ObjectIdentifier?
             let qualifier: QualifierSnapshot?
             let argumentsDescription: String?
             let argumentsType: ObjectIdentifier?

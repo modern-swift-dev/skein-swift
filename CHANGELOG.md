@@ -7,12 +7,14 @@
 - Scoped bindings may now be declared as structural scope roots with `.root()` or `.root(.structural)`, so validated startup checks scoped dependency graphs ([ADR-0001](docs/adr/0001-scoped-bindings-as-structural-scope-roots.md)). This changes `SkeinError`:
   - **Added** `SkeinError.eagerScopedRoot(type:qualifier:)`, thrown at application construction for `.root(.eager)` on a scoped binding. Exhaustive `switch` statements over `SkeinError` must handle the new case.
   - **Removed** `SkeinError.scopedBindingCannotBeRoot(type:qualifier:)`. Code that matches this case no longer compiles; match `eagerScopedRoot` instead.
+- `SkeinSwiftUIError` has two new cases, `missingScope(scope:)` and `scopeCreationFailed(scope:underlying:)`, for view-owned scopes. Exhaustive `switch` statements over `SkeinSwiftUIError` must handle them.
 
 ### Additions
 
 - `SkeinApplication.createScope(_:id:seeding:as:qualifier:)` keys a seed by an explicit service type and optional qualifier, so an existential such as `any Session` can seed a protocol-typed scoped binding, and qualified scoped bindings can be seeded.
 - Constructor registrations for scoped bindings: `scoped`, `nonisolatedScoped`, and `actorScoped` accept `using:` in both argument orders. They record their dependency edges, so a scope root registered this way is fully validated at startup.
 - `SkeinState`, a SwiftUI property wrapper for `@Observable` models, with the same resolution, retry and error rules as `SkeinStateObject`.
+- View-owned scopes: `.skeinScope(_:id:)` and `.skeinScope(_:id:seeding:as:qualifier:)` give a view a scope for the lifetime of its SwiftUI identity, and `.resolving(in:)` on `SkeinStateObject` and `SkeinState` resolves from it.
 
 ### Deprecations
 

@@ -4,9 +4,11 @@
     /// The retained resolution result of a SwiftUI property wrapper, shared by
     /// ``SkeinStateObject`` and ``SkeinState``.
     ///
-    /// The first result is kept for the wrapper's SwiftUI identity. The only exception is
-    /// ``SkeinSwiftUIError/missingApplication``, which is replaced by a new resolution once an
-    /// application appears. Successful results and provider failures are never retried.
+    /// The first result is kept for the wrapper's SwiftUI identity. The exceptions are the
+    /// "not there yet" failures, ``SkeinSwiftUIError/missingApplication`` and
+    /// ``SkeinSwiftUIError/missingScope(scope:)``, which are retried on every update until the
+    /// application or scope appears. Successful results, provider failures and
+    /// ``SkeinSwiftUIError/scopeCreationFailed(scope:underlying:)`` are never retried.
     @MainActor
     @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) final class ResolutionState<Model> {
         /// The retained result, or `nil` before the first update.
@@ -39,19 +41,22 @@
         }
 
         /// Resolves the model when no result is retained yet, or when the retained result is a
-        /// missing-application failure and an application is now available.
+        /// retryable "not there yet" failure.
         ///
         /// - Parameters:
-        ///   - application: The application in the wrapper's environment, if any.
+        ///   - environment: What the wrapper finds in its SwiftUI environment.
         ///   - request: The wrapper's current request.
         /// - Returns: The newly resolved model, or `nil` when nothing new was resolved.
         @discardableResult
-        func resolveIfNeeded(application: SkeinApplication?, request: ResolutionRequest<Model>) -> Model? {
-            let application = request.usesApplication ? application : nil
-            if let result, !(isMissingApplication(result) && application != nil) {
+        func resolveIfNeeded(environment: WrapperEnvironment, request: ResolutionRequest<Model>) -> Model? {
+            let application = request.usesEnvironment ? environment.application : nil
+            if let result, !isRetryable(result) {
                 #if DEBUG
                     diagnoseChangedInputs(application: application, configuration: request.configuration)
                 #endif
+                return nil
+            }
+            guard request.usesEnvironment else {
                 return nil
             }
 
@@ -59,20 +64,20 @@
                 initialApplication = application.map(ObjectIdentifier.init)
                 initialConfiguration = request.configuration
             #endif
-            guard let application else {
-                result = .failure(SkeinSwiftUIError.missingApplication)
-                return nil
-            }
-            let resolved = Result { try request.resolve(application) }
-            result = resolved
+            result = Result { try request.resolve(environment) }
             return model
         }
 
-        private func isMissingApplication(_ result: Result<Model, Error>) -> Bool {
+        private func isRetryable(_ result: Result<Model, Error>) -> Bool {
             guard case let .failure(error) = result else {
                 return false
             }
-            return error as? SkeinSwiftUIError == .missingApplication
+            switch error as? SkeinSwiftUIError {
+                case .missingApplication,
+                     .missingScope: return true
+                case .scopeCreationFailed,
+                     nil: return false
+            }
         }
 
         #if DEBUG

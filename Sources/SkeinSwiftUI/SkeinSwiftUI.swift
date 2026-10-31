@@ -6,13 +6,37 @@
     /// Errors produced by the SwiftUI integration layer.
     @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) public enum SkeinSwiftUIError: Error, Equatable, LocalizedError {
         /// No application was supplied by a surrounding `skeinApplication(_:)` modifier.
+        ///
+        /// Resolving wrappers retry this failure once an application appears.
         case missingApplication
+
+        /// A wrapper resolving `in:` a scope kind has no surrounding `skeinScope(_:id:)` modifier of that kind.
+        ///
+        /// Resolving wrappers retry this failure once a scope of that kind appears.
+        ///
+        /// - Parameter scope: The fully qualified name of the scope kind.
+        case missingScope(scope: String)
+
+        /// Creating the view-owned scope of a surrounding `skeinScope(_:id:)` modifier failed.
+        ///
+        /// The failure is kept for the view's identity; give the owning view a new identity with
+        /// `.id(...)` to try again.
+        ///
+        /// - Parameters:
+        ///   - scope: The fully qualified name of the scope kind.
+        ///   - underlying: The error thrown while creating the scope, such as
+        ///     `SkeinError.missingBinding(type:qualifier:)` for a seed or `SkeinError.applicationClosed`.
+        case scopeCreationFailed(scope: String, underlying: SkeinError)
 
         /// A localized description suitable for display and diagnostics.
         public var errorDescription: String? {
             switch self {
                 case .missingApplication:
                     "No SkeinApplication is present in the SwiftUI environment. Apply .skeinApplication(_:) to an ancestor view."
+                case let .missingScope(scope):
+                    "No \(scope) scope is present in the SwiftUI environment. Apply .skeinScope(\(scope).self, id:) to an ancestor view."
+                case let .scopeCreationFailed(scope, underlying):
+                    "Creating the \(scope) scope for this view failed: \(underlying)"
             }
         }
     }
@@ -47,14 +71,17 @@
     /// identity. To resolve again with a new application or argument value, give the
     /// enclosing view a new identity with `.id(...)`.
     ///
-    /// The only exception is ``SkeinSwiftUIError/missingApplication``: when an update runs
-    /// before any application is in the environment, the property resolves again on the
-    /// first later update that finds one. Successful results and provider failures stay
-    /// retained, so a failing provider is not run again on every render.
+    /// The exceptions are ``SkeinSwiftUIError/missingApplication`` and
+    /// ``SkeinSwiftUIError/missingScope(scope:)``: when an update runs before the application or
+    /// view-owned scope is in the environment, the property resolves again on the first later
+    /// update that finds it. Successful results, provider failures and
+    /// ``SkeinSwiftUIError/scopeCreationFailed(scope:underlying:)`` stay retained, so a failing
+    /// provider is not run again on every render.
     @MainActor
     @propertyWrapper
     @available(iOS 17, tvOS 17, macOS 15, watchOS 10, visionOS 1, *) public struct SkeinStateObject<Model: ObservableObject>: @preconcurrency DynamicProperty {
         @Environment(\.skeinApplication) private var application
+        @Environment(\.skeinScopes) private var scopes
         @StateObject private var storage: Storage<Model>
         private let request: ResolutionRequest<Model>
 
@@ -92,6 +119,38 @@
             Self(request: .assisted(arguments: arguments, qualifier: qualifier))
         }
 
+        /// Configures this property to resolve an ordinary binding from the nearest view-owned scope of a kind.
+        ///
+        /// The scope is supplied by a surrounding `skeinScope(_:id:)` modifier. Scoped bindings of
+        /// that kind resolve from the scope; other bindings resolve from its application. Without
+        /// such a modifier the result is ``SkeinSwiftUIError/missingScope(scope:)``, which is
+        /// retried once the scope appears.
+        ///
+        /// - Parameters:
+        ///   - kind: The scope kind to resolve from.
+        ///   - qualifier: An optional qualifier selecting a specific binding.
+        /// - Returns: A property-wrapper value configured for deferred resolution.
+        public static func resolving(in kind: (some SkeinScope).Type, qualifier: (any SkeinQualifier)? = nil) -> Self {
+            Self(request: .inScope(kind, qualifier: qualifier))
+        }
+
+        /// Configures this property to resolve an assisted binding from the nearest view-owned scope of a kind.
+        ///
+        /// See ``resolving(in:qualifier:)`` for how the scope is found.
+        ///
+        /// - Parameters:
+        ///   - kind: The scope kind to resolve from.
+        ///   - arguments: The assisted arguments passed to the registered provider.
+        ///   - qualifier: An optional qualifier selecting a specific binding.
+        /// - Returns: A property-wrapper value configured for deferred resolution.
+        public static func resolving(
+            in kind: (some SkeinScope).Type,
+            arguments: some Any,
+            qualifier: (any SkeinQualifier)? = nil
+        ) -> Self {
+            Self(request: .inScope(kind, arguments: arguments, qualifier: qualifier))
+        }
+
         /// Retains an explicitly supplied model without consulting the environment.
         ///
         /// - Parameter model: The observable object to retain.
@@ -114,10 +173,11 @@
         ///
         /// The first result is retained for this property's SwiftUI identity. Later updates
         /// do not resolve again when the application, qualifier, or arguments change.
-        /// A ``SkeinSwiftUIError/missingApplication`` failure is the exception: it is
-        /// replaced by a new resolution once an application appears in the environment.
+        /// ``SkeinSwiftUIError/missingApplication`` and ``SkeinSwiftUIError/missingScope(scope:)``
+        /// failures are the exception: they are replaced by a new resolution once the
+        /// application or scope appears in the environment.
         public mutating func update() {
-            storage.resolveIfNeeded(application: application, request: request)
+            storage.resolveIfNeeded(environment: WrapperEnvironment(application: application, scopes: scopes), request: request)
         }
     }
 
@@ -135,8 +195,8 @@
             }
         }
 
-        func resolveIfNeeded(application: SkeinApplication?, request: ResolutionRequest<Model>) {
-            if let model = state.resolveIfNeeded(application: application, request: request) {
+        func resolveIfNeeded(environment: WrapperEnvironment, request: ResolutionRequest<Model>) {
+            if let model = state.resolveIfNeeded(environment: environment, request: request) {
                 observe(model)
             }
         }
