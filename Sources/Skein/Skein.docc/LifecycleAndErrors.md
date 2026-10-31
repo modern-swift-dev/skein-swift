@@ -52,18 +52,17 @@ Opaque closure providers appear in the validation report but are not failures. C
 
 ### Scope roots
 
-Mark a scoped binding as a structural root to validate its graph at startup. No provider runs, and the scope root is reported like any other root.
+Mark a scoped binding as a structural root to validate its graph at startup. No provider runs, and the scope root is reported like any other root. Register it with a constructor (`using:`) so its dependency edges are known:
 
 ```swift
 let sessionModule = module {
-    scoped(SessionScope.self, SessionModel.self) { resolver in
-        SessionModel(api: try resolver.get())
-    }
-    .root()
+    single(APIClient.self, using: APIClient.init)
+    scoped(SessionScope.self, SessionModel.self, using: SessionModel.init)
+        .root()
 }
 ```
 
-Where dependency edges are known, a missing dependency fails with `GraphValidationError.missingBinding`, a dependency on another scope kind's binding fails with `crossScopeDependency`, and an isolation violation fails with `isolationMismatch`. Scoped registrations take closure providers, which are opaque: the scope root above appears in `opaqueBindings`, and its dependencies are not traversed.
+A missing dependency fails with `GraphValidationError.missingBinding`, a dependency on another scope kind's binding fails with `crossScopeDependency`, and an isolation violation fails with `isolationMismatch`. A scoped binding registered with a closure provider is opaque: it appears in `opaqueBindings`, and its dependencies are not traversed.
 
 Scope roots cannot be eager, because no scope exists at startup: `.root(.eager)` on a scoped binding makes application construction throw `SkeinError.eagerScopedRoot`. A single or factory root that depends on a scoped binding still fails with `GraphValidationError.rootDependsOnScopedBinding`.
 

@@ -11,6 +11,7 @@
 ### Additions
 
 - `SkeinApplication.createScope(_:id:seeding:as:qualifier:)` keys a seed by an explicit service type and optional qualifier, so an existential such as `any Session` can seed a protocol-typed scoped binding, and qualified scoped bindings can be seeded.
+- Constructor registrations for scoped bindings: `scoped`, `nonisolatedScoped`, and `actorScoped` accept `using:` in both argument orders. They record their dependency edges, so a scope root registered this way is fully validated at startup.
 
 ### Deprecations
 

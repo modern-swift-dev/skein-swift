@@ -70,6 +70,15 @@ let feature = module {
 
 The exposed service type may be a protocol existential. Use a closure registration for qualified dependencies. Assisted constructors place their runtime argument first and also use `using:`.
 
+`scoped`, `nonisolatedScoped`, and `actorScoped` accept `using:` too. Their dependencies resolve from the scope: scoped bindings of the same scope kind first, then single and factory bindings.
+
+```swift
+let session = module {
+    single(APIClient.self, using: APIClient.init)
+    scoped(SessionScope.self, SessionModel.self, using: SessionModel.init)
+}
+```
+
 ## Isolation
 
 Unprefixed bindings and `get` are MainActor-isolated by default. Services do not need to conform to `Sendable`.

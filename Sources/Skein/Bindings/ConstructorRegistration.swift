@@ -240,6 +240,194 @@ public func nonisolatedFactory<Service: Sendable, Arguments: Sendable, each Depe
     }.withDependencies(edges).withActualActorID(actualActorID)
 }
 
+/// Registers a main-actor service cached once per scope instance, constructed from resolved dependencies.
+///
+/// Dependencies are resolved from the scope: scoped bindings of the same scope kind first, then
+/// single and factory bindings. The recorded dependency edges let startup validation traverse
+/// this binding when it is declared as a scope root.
+///
+/// - Parameters:
+///   - type: The service type to register.
+///   - scope: The scope kind that owns cached values.
+///   - qualifier: The qualifier distinguishing this binding, or `nil`.
+///   - onClose: An optional asynchronous callback run when the scoped value is disposed.
+///   - fileID: The source file containing the registration.
+///   - line: The source line containing the registration.
+///   - constructor: The main-actor constructor whose parameter pack declares dependencies.
+/// - Returns: A scoped binding with structural dependency metadata.
+@MainActor public func scoped<Service, each Dependency>(
+    _ type: Service.Type, scope: (some SkeinScope).Type,
+    qualifier: (any SkeinQualifier)? = nil,
+    onClose: (@MainActor (Service) async -> Void)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @MainActor (repeat each Dependency) throws -> Service
+) -> Binding {
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self {
+        edges.append(.init(dependency))
+    }
+    return scoped(type, scope: scope, qualifier: qualifier, onClose: onClose, fileID: fileID, line: line, provider: { resolver in
+        try constructor(repeat resolver.get((each Dependency).self))
+    }).withDependencies(edges)
+}
+
+/// Registers a main-actor scoped service constructed from resolved dependencies, with the scope listed first.
+///
+/// Dependencies are resolved from the scope: scoped bindings of the same scope kind first, then
+/// single and factory bindings.
+///
+/// - Parameters:
+///   - scope: The scope kind that owns cached values.
+///   - type: The service type to register.
+///   - qualifier: The qualifier distinguishing this binding, or `nil`.
+///   - onClose: An optional asynchronous callback run when the scoped value is disposed.
+///   - fileID: The source file containing the registration.
+///   - line: The source line containing the registration.
+///   - constructor: The main-actor constructor whose parameter pack declares dependencies.
+/// - Returns: A scoped binding with structural dependency metadata.
+@MainActor public func scoped<Service, each Dependency>(
+    _ scope: (some SkeinScope).Type, _ type: Service.Type,
+    qualifier: (any SkeinQualifier)? = nil,
+    onClose: (@MainActor (Service) async -> Void)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @MainActor (repeat each Dependency) throws -> Service
+) -> Binding {
+    scoped(type, scope: scope, qualifier: qualifier, onClose: onClose, fileID: fileID, line: line, using: constructor)
+}
+
+/// Registers a sendable nonisolated service cached once per scope instance, constructed from resolved dependencies.
+///
+/// Dependencies are resolved from the scope: scoped bindings of the same scope kind first, then
+/// single and factory bindings. The recorded dependency edges let startup validation traverse
+/// this binding when it is declared as a scope root.
+///
+/// - Parameters:
+///   - type: The service type to register.
+///   - scope: The scope kind that owns cached values.
+///   - qualifier: The qualifier distinguishing this binding, or `nil`.
+///   - onClose: An optional sendable callback run when the scoped value is disposed.
+///   - fileID: The source file containing the registration.
+///   - line: The source line containing the registration.
+///   - constructor: The sendable constructor whose parameter pack declares dependencies.
+/// - Returns: A scoped binding with structural dependency metadata.
+public func nonisolatedScoped<Service: Sendable, each Dependency: Sendable>(
+    _ type: Service.Type, scope: (some SkeinScope).Type,
+    qualifier: (any SkeinQualifier)? = nil,
+    onClose: (@Sendable (Service) async -> Void)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @Sendable (repeat each Dependency) throws -> Service
+) -> Binding {
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self {
+        edges.append(.init(dependency))
+    }
+    return nonisolatedScoped(type, scope: scope, qualifier: qualifier, onClose: onClose, fileID: fileID, line: line, provider: { resolver in
+        try constructor(repeat resolver.nonisolatedGet((each Dependency).self))
+    }).withDependencies(edges)
+}
+
+/// Registers a sendable nonisolated scoped service constructed from resolved dependencies, with the scope listed first.
+///
+/// Dependencies are resolved from the scope: scoped bindings of the same scope kind first, then
+/// single and factory bindings.
+///
+/// - Parameters:
+///   - scope: The scope kind that owns cached values.
+///   - type: The service type to register.
+///   - qualifier: The qualifier distinguishing this binding, or `nil`.
+///   - onClose: An optional sendable callback run when the scoped value is disposed.
+///   - fileID: The source file containing the registration.
+///   - line: The source line containing the registration.
+///   - constructor: The sendable constructor whose parameter pack declares dependencies.
+/// - Returns: A scoped binding with structural dependency metadata.
+public func nonisolatedScoped<Service: Sendable, each Dependency: Sendable>(
+    _ scope: (some SkeinScope).Type, _ type: Service.Type,
+    qualifier: (any SkeinQualifier)? = nil,
+    onClose: (@Sendable (Service) async -> Void)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @Sendable (repeat each Dependency) throws -> Service
+) -> Binding {
+    nonisolatedScoped(type, scope: scope, qualifier: qualifier, onClose: onClose, fileID: fileID, line: line, using: constructor)
+}
+
+/// Registers a custom-actor service cached once per scope instance, constructed from resolved dependencies.
+///
+/// Dependencies are resolved from the scope through `actorGet`: scoped bindings of the same scope
+/// kind first, then single and factory bindings. The constructor must be isolated to `isolatedTo`.
+/// The recorded dependency edges let startup validation traverse this binding when it is declared
+/// as a scope root.
+///
+/// - Parameters:
+///   - type: The service type to register.
+///   - scope: The scope kind that owns cached values.
+///   - isolatedTo: The global actor on which the constructor and disposer execute.
+///   - qualifier: The qualifier distinguishing this binding, or `nil`.
+///   - onClose: An optional actor-isolated callback run when the scoped value is disposed.
+///   - fileID: The source file containing the registration.
+///   - line: The source line containing the registration.
+///   - constructor: The actor-isolated constructor whose parameter pack declares dependencies.
+/// - Returns: A scoped binding with structural dependency metadata.
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *) public func actorScoped<Service: Sendable, each Dependency: Sendable>(
+    _ type: Service.Type, scope: (some SkeinScope).Type, isolatedTo: (some GlobalActor).Type,
+    qualifier: (any SkeinQualifier)? = nil,
+    onClose: (@isolated(any) @Sendable (Service) async -> Void)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @isolated(any) @Sendable (repeat each Dependency) async throws -> Service
+) -> Binding {
+    var edges: [BindingDependency] = []
+    for dependency in repeat (each Dependency).self {
+        edges.append(.init(dependency))
+    }
+    let actualActorID = constructor.isolation.map(ObjectIdentifier.init)
+    let callable: @Sendable (repeat each Dependency) async throws -> Service = constructor
+    return actorScoped(
+        type,
+        scope: scope,
+        isolatedTo: isolatedTo,
+        qualifier: qualifier,
+        onClose: onClose,
+        fileID: fileID,
+        line: line,
+        provider: { resolver in
+            try await callable(repeat resolver.actorGet((each Dependency).self))
+        }
+    ).withDependencies(edges).withActualActorID(actualActorID)
+}
+
+/// Registers a custom-actor scoped service constructed from resolved dependencies, with the scope listed first.
+///
+/// Dependencies are resolved from the scope through `actorGet`: scoped bindings of the same scope
+/// kind first, then single and factory bindings. The constructor must be isolated to `isolatedTo`.
+///
+/// - Parameters:
+///   - scope: The scope kind that owns cached values.
+///   - type: The service type to register.
+///   - isolatedTo: The global actor on which the constructor and disposer execute.
+///   - qualifier: The qualifier distinguishing this binding, or `nil`.
+///   - onClose: An optional actor-isolated callback run when the scoped value is disposed.
+///   - fileID: The source file containing the registration.
+///   - line: The source line containing the registration.
+///   - constructor: The actor-isolated constructor whose parameter pack declares dependencies.
+/// - Returns: A scoped binding with structural dependency metadata.
+@available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *) public func actorScoped<Service: Sendable, each Dependency: Sendable>(
+    _ scope: (some SkeinScope).Type, _ type: Service.Type, isolatedTo: (some GlobalActor).Type,
+    qualifier: (any SkeinQualifier)? = nil,
+    onClose: (@isolated(any) @Sendable (Service) async -> Void)? = nil,
+    fileID: String = #fileID, line: UInt = #line,
+    using constructor: @escaping @isolated(any) @Sendable (repeat each Dependency) async throws -> Service
+) -> Binding {
+    actorScoped(
+        type,
+        scope: scope,
+        isolatedTo: isolatedTo,
+        qualifier: qualifier,
+        onClose: onClose,
+        fileID: fileID,
+        line: line,
+        using: constructor
+    )
+}
+
 private extension Binding {
     func withDependencies(_ dependencies: [BindingDependency]) -> Binding {
         Binding(
